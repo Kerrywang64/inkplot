@@ -1,6 +1,17 @@
 __pycache__/
 *.pyc
-art.json
-*.html
-!assets/*.tpl.html
-sheet*.png
+.DS_Store
+
+# CLI 产物 —— 只忽略仓库根目录的，不要用无前缀通配
+# （曾经写成 sheet*.png，把 assets/sheet.png 也挡了，CI 因此提交失败）
+/art.json
+/*.json.tmp
+/sheet.png
+/sheet-*.png
+/sample.png
+/gallery.html
+/index.html
+/tokens.css
+/test.html
+
+# assets/ 下的展示图必须提交，由 scripts/make_assets.py 生成
