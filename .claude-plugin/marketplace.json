@@ -1,0 +1,11 @@
+{
+  "name": "riso-press-skill",
+  "owner": { "name": "Kerry" },
+  "plugins": [
+    {
+      "name": "riso-press",
+      "source": "./",
+      "description": "版画/riso 质感艺术图生成器 + 编辑风格画廊构建器"
+    }
+  ]
+}

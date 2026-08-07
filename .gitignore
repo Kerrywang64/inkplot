@@ -1,4 +1,6 @@
 __pycache__/
 *.pyc
 art.json
+*.html
+!assets/*.tpl.html
 sheet*.png
