@@ -51,6 +51,9 @@ python3 scripts/gallery.py --art art.json --out gallery.html
 | `--seed` | 随机种子。同种子同参数 → 完全一致的结果 |
 | `--palette` | `all` / `warm`（陶土赭石系）/ `cool`（青蓝橄榄系） |
 | `--pattern` | 锁定单一结构，做同系列时用 |
+| `--density` | 1–10，副结构出现概率。低=极简单层，高=层次密集 |
+| `--contrast` | 1–10，底与主色明度差下限。低=柔和，高=强烈 |
+| `--texture` | 1–10，套印错位与颗粒强度。低=干净，高=年代感 |
 | `--out` | 输出 JSON，默认 `art.json` |
 | `--contact` | 额外输出联系样张 PNG，**先看这个再决定要不要重生成** |
 
@@ -64,6 +67,15 @@ python3 scripts/gallery.py --art art.json --out gallery.html
 | `--sub` | 副标题 |
 | `--brand` / `--edition` | 页眉品牌与刊次 |
 | `--layout` | `mosaic` 错落 / `quad` 双栏 / `solo` 单幅 |
+
+## 三个旋钮
+
+出图"太杂"就调低 `--density`；风格不统一就锁 `--palette warm|cool`；要干净矢量感就调低 `--texture`。
+
+```bash
+python3 scripts/generate.py --count 12 --density 2 --contrast 4 --texture 3 --palette cool   # 极简
+python3 scripts/generate.py --count 12 --density 8 --contrast 9 --texture 9 --palette warm   # 做旧
+```
 
 ## 图案结构（10）
 

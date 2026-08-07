@@ -185,20 +185,29 @@ def disc_mask(R):
 MASKS = [torn_mask, band_mask, disc_mask]
 
 
-def riso(im, R):
-    """套印错位 + 纸张颗粒 + 油墨不均"""
+def riso(im, R, texture=5):
+    """套印错位 + 纸张颗粒 + 油墨不均。texture 1-10 控制强度。"""
+    t = texture / 5.0
     a = np.array(im).astype(np.int16)
-    dx, dy = R.choice([(3, 0), (0, 3), (2, 2), (-3, 2)])
+    sh = max(1, round(3 * t))
+    dx, dy = R.choice([(sh, 0), (0, sh), (sh, sh), (-sh, sh)])
     a[:, :, 0] = np.roll(np.roll(a[:, :, 0], dy, 0), dx, 1)
-    a[:, :, 2] = np.roll(a[:, :, 2], -max(1, dx // 2), 1)
-    a = a + np.random.normal(0, 10, (CANVAS, CANVAS, 1))
+    a[:, :, 2] = np.roll(a[:, :, 2], -max(1, sh // 2), 1)
+    a = a + np.random.normal(0, 10 * t, (CANVAS, CANVAS, 1))
     yy, xx = np.mgrid[0:CANVAS, 0:CANVAS]
     a = a * (1 - .13 * np.sin(xx / CANVAS * math.pi) * np.cos(yy / CANVAS * math.pi * 1.2))[:, :, None]
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(.7))
 
 
-def compose(R, pool, force_pattern=None):
-    """一幅 = 底 + 主结构（满幅）+ 可选副结构（遮罩内，面积受限）"""
+def compose(R, pool, force_pattern=None, dials=None):
+    """一幅 = 底 + 主结构（满幅）+ 可选副结构（遮罩内，面积受限）
+
+    dials: (density, contrast, texture) 各 1-10
+      density  副结构出现概率与图案密集度
+      contrast 底色与主色的明度差下限
+      texture  套印错位与颗粒强度（在 riso() 里用）
+    """
+    D, C, _ = dials or (5, 5, 5)
     pk = force_pattern or R.choice(list(PATTERNS))
     fn, cn_p, en_p = PATTERNS[pk]
 
@@ -206,20 +215,21 @@ def compose(R, pool, force_pattern=None):
     main_key = R.choice(pool)
     main_rgb, cn_c, en_c, _ = PAL[main_key]
 
-    # 底色：纸 或 同族低对比色
+    # 底色：纸 或 同族色（明度差随 contrast 提高）
+    gap = 60 + C * 14                      # C=1→74, C=5→130, C=10→200
     if R.random() < .5:
         bg = PAPER
     else:
-        cands = [k for k in pool if k != main_key and abs(sum(PAL[k][0]) - sum(main_rgb)) > 110]
+        cands = [k for k in pool if k != main_key and abs(sum(PAL[k][0]) - sum(main_rgb)) > gap]
         bg = PAL[R.choice(cands)][0] if cands else PAPER
 
     im = Image.new("RGB", (CANVAS, CANVAS), bg)
     d = ImageDraw.Draw(im)
     fn(d, main_rgb, R)
 
-    # 副结构：50% 概率，必过遮罩，且用第三色或墨黑
+    # 副结构：概率随 density，必过遮罩，且用第三色或墨黑
     second = None
-    if R.random() < .5:
+    if R.random() < D / 12:                # D=1→8%, D=5→42%, D=10→83%
         sk = R.choice([k for k in PATTERNS if k != pk])
         sfn, cn_s, en_s = PATTERNS[sk]
         sc = INK if R.random() < .4 else PAL[R.choice(pool)][0]
@@ -252,6 +262,12 @@ def main():
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--palette", choices=["all", "warm", "cool"], default="all")
     ap.add_argument("--pattern", choices=list(PATTERNS), default=None, help="锁定单一结构")
+    ap.add_argument("--density",  type=int, default=5, choices=range(1,11), metavar="1-10",
+                    help="副结构出现概率。低=极简，高=层次多")
+    ap.add_argument("--contrast", type=int, default=5, choices=range(1,11), metavar="1-10",
+                    help="底色与主色的明度差下限。低=柔和，高=强烈")
+    ap.add_argument("--texture",  type=int, default=5, choices=range(1,11), metavar="1-10",
+                    help="套印错位与颗粒强度。低=干净，高=年代感")
     ap.add_argument("--out", default="art.json")
     ap.add_argument("--contact", default=None, help="同时输出联系样张 PNG")
     a = ap.parse_args()
@@ -261,13 +277,16 @@ def main():
 
     pool = [k for k, v in PAL.items() if a.palette == "all" or v[3] == a.palette]
 
+    dials = (a.density, a.contrast, a.texture)
     items, ims = [], []
     for i in range(a.count):
-        im, cn, en, meta = compose(R, pool, a.pattern)
-        im = riso(im, R)
+        im, cn, en, meta = compose(R, pool, a.pattern, dials)
+        im = riso(im, R, a.texture)
         ims.append(im)
         items.append({"src": to_uri(im, a.size, a.colors),
-                      "cn": cn, "en": en, "no": i + 1, **meta})
+                      "cn": cn, "en": en, "no": i + 1,
+                      "dials": {"density": a.density, "contrast": a.contrast, "texture": a.texture},
+                      **meta})
 
     json.dump(items, open(a.out, "w"), ensure_ascii=False)
     kb = sum(len(x["src"]) for x in items) / 1024

@@ -1,6 +1,6 @@
 {
   "name": "riso-press",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "程序化生成版画/riso 孔版质感的拼贴艺术图，并装配成编辑风格的画廊页",
   "license": "MIT",
   "entry": "SKILL.md",
