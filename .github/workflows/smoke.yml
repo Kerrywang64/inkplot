@@ -89,7 +89,7 @@ jobs:
           if [ -n "$(git status --porcelain assets)" ]; then
             git add assets/banner.png assets/sheet.png
             git commit -m "chore(assets): regenerate README previews [skip ci]"
-            git push
+            git push origin HEAD:main
           else
             echo "assets unchanged"
           fi
