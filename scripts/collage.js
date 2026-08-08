@@ -67,6 +67,7 @@ var PAPER = [244, 240, 230];
 var INK   = [ 24,  24,  22];
 function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')'; }
 function lum(c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t | 0, a[1] + (b[1] - a[1]) * t | 0, a[2] + (b[2] - a[2]) * t | 0]; }
 /* 第二色场：明度差必须 ≥ 62，否则两个色平分画面会互相打架。
    在合格的候选里随机取，而不是取最大差 —— 取最大会永远选到黑白。 */
 function contrastPick(bg, pool) {
@@ -802,8 +803,10 @@ var VIZ = {
 };
 var VIZ_KEYS = Object.keys(VIZ);
 /* 只有这几种是「调子型」—— 过网点仍然认得出。线稿型过网点就糊了。 */
-var TONAL = { nebula: 1, contour: 1, matrix: 1, waffle: 1, stream: 1, area: 1, scatter: 1,
-              hexbin: 1, calendar: 1, attention: 1, umap: 1, voronoi: 1, phase: 1, beeswarm: 1 };
+/* 能过网点的只有「本来就是色块」的那几种 —— 网点是拿来替代实心填充的。
+   线型和点型标本（contour / voronoi / scatter / beeswarm / phase / umap）一过网，
+   线就断成虚线、点就糊成一团，图本身先没了。宁可不加质感也不能吃掉主体。 */
+var TONAL = { nebula: 1, stream: 1, area: 1 };
 
 /* 外部素材仍然支持（可选），但默认走标本库 */
 var MATS = [];
@@ -847,6 +850,30 @@ function drawSlot(g, x, y, w, h, spec, N) {
    从 28 张原图里归纳出来的分割方式，一张只用一种。 */
 var SKELETONS = ['diagonal', 'vsplit', 'hsplit', 'quad', 'inset', 'scallop', 'band'];
 
+/* ───────── 质感：挂在位置上，不是铺在全图上 ─────────
+   真印刷里质感是有地址的。四种质感，四个落点：
+
+     A 交界带  堆墨（内侧压暗）      带宽 1.2% 画幅        每张
+     B 套印    重影错位露第三色      位移 1.2% × 档位      每张有第二色场的
+     C 质感区  粗颗粒，照片感        一个色场 ≈ 40% 画幅   只有 38% 的图
+     D 墨层    密度不匀（加性，不打洞）仅标本墨迹           每张
+     E 纸基    纤维                  全图                  振幅 ≤ 3/255
+
+   C 是唯一会被一眼看见的那层，所以它必须**只占一块**：
+   平涂和颗粒并置才有材质对比，全图都上颗粒等于没上。
+   D 用加性不用抠 alpha —— 抠 alpha 会在色块上开出云斑，那是发霉不是印刷。
+
+   档位 0 关 / 1 轻 / 2 中 / 3 重（默认） */
+var TEXTURE = 3;
+var TEX = [
+  /*  fiber 纸基  build 堆墨  ghost 重影  ink 墨不匀  patch 质感区概率  grit 质感区强度  screen 网点概率 */
+  { fiber: 0.0, build: 0.00, ghost: 0.00, ink: 0.00, patch: 0.00, grit: 0.00, screen: 0.00 },
+  { fiber: 1.3, build: 0.16, ghost: 0.45, ink: 0.05, patch: 0.26, grit: 0.20, screen: 0.28 },
+  { fiber: 2.4, build: 0.30, ghost: 0.90, ink: 0.10, patch: 0.42, grit: 0.36, screen: 0.46 },
+  { fiber: 4.2, build: 0.48, ghost: 1.60, ink: 0.19, patch: 0.66, grit: 0.50, screen: 0.62 }
+];
+
+var FORCEKIT = null;
 var CFG = { count: 24, seed: 20260808 };
 var SPECS = [], CACHE = [], SCALE = 1.4;
 var SHAPES = [[320, 320], [320, 400], [400, 320], [360, 240]];
@@ -888,9 +915,189 @@ function makeSpecs() {
     sp.lw     = rf(0.72, 1.55);
     sp.style  = pick([0, 0, 0, 1, 2, 3, 4]);
     sp.card = rnd() < 0.62;                                  /* 多数放在奶白卡上，保证可读 */
-    sp.screen = !sp.card && TONAL[sp.viz] === 1 && rnd() < 0.55;
+    sp.screen = !sp.card && TONAL[sp.viz] === 1 && rnd() < TEX[TEXTURE].screen;
+    sp.kit = FORCEKIT || pick(KITS);                         /* 这张用哪种材质 */
   }
   CACHE = new Array(CFG.count);
+}
+
+/* D · 墨层密度不匀 —— 只碰有墨的像素，且只加减亮度，不动 alpha。
+   抠 alpha 会在实心色块上开出云斑，读起来是发霉不是印刷。
+   两个频率：慢的是上墨量漂移，快的是纸纤维吃墨。 */
+function inkGrain(cv, N, amt, sc) {
+  if (amt <= 0) return;
+  var g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  var d = g.getImageData(0, 0, W, H), p = d.data, i = 0;
+  var A = amt * 150;
+  for (var y = 0; y < H; y++) for (var x = 0; x < W; x++, i += 4) {
+    if (!p[i + 3]) continue;
+    var v = (fbm(N, x / sc, y / sc, 3) - 0.5) * 0.65 + (N(x / 1.7, y / 1.7) - 0.5) * 0.35;
+    var dv = v * A;
+    p[i] += dv; p[i + 1] += dv; p[i + 2] += dv;
+  }
+  g.putImageData(d, 0, 0);
+}
+
+/* ═══════════ C · 材质库 ═══════════
+   一种质感 = 两张场：kd 压暗（走 multiply），kl 提亮（走 lighter，可以没有）。
+   分开是必须的 —— 金属没有高光就只是灰噪，哑光有了高光就不叫哑光。
+   全部按位置生成，不用贴图，不用外部素材。 */
+var KITS = ['grit', 'grit', 'matte', 'matte', 'plaster', 'linen', 'roller', 'vein', 'brushed', 'foil', 'crease'];
+var KITNAME = {
+  grit:    ['颗粒',   'film grit'],
+  matte:   ['哑光',   'matte'],
+  plaster: ['石膏',   'plaster'],
+  linen:   ['布纹',   'linen'],
+  roller:  ['滚筒',   'ink roller'],
+  vein:    ['木纹',   'wood vein'],
+  brushed: ['拉丝金属', 'brushed metal'],
+  foil:    ['烫金箔', 'foil'],
+  crease:  ['折痕',   'crease']
+};
+
+function texField(kind, W, H, N, amt, f) {
+  var n = W * H, kd = new Float32Array(n), kl = null, i = 0, x, y;
+  var S = W > H ? W : H, lo = Math.max(10, W / 22) * f;
+
+  if (kind === 'matte') {
+    /* 哑光：极细、极匀、低反差。粉体涂层的样子 —— 一给高光就不哑了，所以没有 kl。 */
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var m1 = N(x / 1.05, y / 1.05), m2 = fbm(N, x / (lo * 2.2), y / (lo * 2.2), 2);
+      kd[i] = amt * (0.34 + 0.52 * (1 - m1) + 0.30 * (0.6 - m2));
+    }
+  } else if (kind === 'brushed') {
+    /* 拉丝金属：沿一个方向拉得极长、垂直方向极密的各向异性噪声，加一道宽高光带。 */
+    kl = new Float32Array(n);
+    var vert = f > 1.25;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var u = vert ? y : x, v = vert ? x : y;
+      var st = N(u / (95 * f), v / 1.15) * 0.70 + N(u / (14 * f) + 9, v / 2.6 + 9) * 0.30;
+      var sh = 0.5 + 0.5 * Math.cos((v / (vert ? W : H)) * 3.1416 * 1.35 + 1.1);
+      kd[i] = amt * ((1 - st) * 1.15 + (1 - sh) * 0.28);
+      kl[i] = amt * sh * sh * 0.62 * (0.35 + 0.65 * st);
+    }
+  } else if (kind === 'foil') {
+    /* 烫金箔：两三道平滑的斜向反光带，几乎不带颗粒。压暗和提亮同时存在才有金属味。 */
+    kl = new Float32Array(n);
+    var ang = 0.55 + f * 0.55, ca = Math.cos(ang), sa = Math.sin(ang), bands = 1.9 + f * 0.8;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var t = ((x * ca + y * sa) / S) * bands + fbm(N, x / (lo * 3), y / (lo * 3), 2) * 0.32;
+      var w = Math.sin(t * 6.2832), fg2 = N(x / 1.25, y / 1.25);
+      /* 箔压在纸上仍然有纤维。纯平滑渐变会滑成 3D 高光，那就不是印刷了。 */
+      kd[i] = amt * ((w < 0 ? -w : 0) * 0.92 + (1 - fg2) * 0.22);
+      kl[i] = amt * (w > 0 ? w : 0) * 0.62;
+    }
+  } else if (kind === 'linen') {
+    /* 布纹：两个方向的细棱，不是点阵。低频调制打散规则性，免得像屏幕摩尔纹。 */
+    var px = 2.0 + 2.6 * f, py = px * 1.28;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var wx = 0.5 + 0.5 * Math.sin(x * 6.2832 / px), wy = 0.5 + 0.5 * Math.sin(y * 6.2832 / py);
+      var md = fbm(N, x / (lo * 1.6), y / (lo * 1.6), 2);
+      kd[i] = amt * (wx * 0.5 + wy * 0.5) * 0.95 * (0.5 + 0.95 * md);
+    }
+  } else if (kind === 'plaster') {
+    /* 石膏／水泥：大块软斑打底，再撒一层细麻点。 */
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var b = fbm(N, x / (lo * 2.6), y / (lo * 2.6), 4), pit = N(x / 1.6, y / 1.6);
+      kd[i] = amt * ((0.62 - b) * 1.65 + (1 - pit) * 0.28);
+    }
+  } else if (kind === 'roller') {
+    /* 油墨滚筒：横向拖影，外加沿滚筒周长的一圈圈密度带。丝网／riso 的典型毛病。 */
+    var rows = 2.2 + f * 1.7;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var sm = N(x / (30 * f), y / (2.4 * f));      /* 拖影必须横着走，才跟拉丝分得开 */
+      var bd = 0.5 + 0.5 * Math.sin(y / H * 3.1416 * rows + 0.8);
+      kd[i] = amt * ((1 - sm) * 0.55 + bd * 0.60);
+    }
+  } else if (kind === 'vein') {
+    /* 木纹／大理石：拿 fbm 去扭曲坐标，扭出长条纹。 */
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var q = fbm(N, x / (lo * 1.8), y / (lo * 4.5), 3);
+      var s2 = 0.5 + 0.5 * Math.sin((x / (lo * 1.1) + q * 3.4) * 3.1416);
+      kd[i] = amt * s2 * 1.05 * (0.45 + 0.85 * fbm(N, x / (lo * 3), y / (lo * 3), 2));
+    }
+  } else if (kind === 'crease') {
+    /* 折痕：几条软棱，一侧压暗一侧提亮 —— 折过的纸就是这样。 */
+    kl = new Float32Array(n);
+    var L = [], cnt = 2 + (((f * 7) | 0) % 3);
+    for (var q2 = 0; q2 < cnt; q2++) {
+      var a0 = q2 * 1.73 + f * 2.31;
+      L.push([W * ((q2 * 0.37 + f * 0.61) % 1), H * ((q2 * 0.53 + f * 0.29) % 1),
+              Math.cos(a0), Math.sin(a0)]);
+    }
+    var wdt = S * 0.045;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var best = 1e9, side = 0;
+      for (var q3 = 0; q3 < L.length; q3++) {
+        var sd = (x - L[q3][0]) * (-L[q3][3]) + (y - L[q3][1]) * L[q3][2];
+        var ad = sd < 0 ? -sd : sd;
+        if (ad < best) { best = ad; side = sd; }
+      }
+      var fa = 1 - best / wdt; fa = fa < 0 ? 0 : fa * fa;
+      var fn = N(x / 1.3, y / 1.3);
+      kd[i] = amt * (fa * (side < 0 ? 1.15 : 0.12) + (1 - fn) * 0.16);
+      kl[i] = amt * fa * (side > 0 ? 0.52 : 0);
+    }
+  } else {                                   /* grit —— 照片颗粒 */
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
+      var lw = fbm(N, x / lo, y / lo, 3);
+      var hi = N(x / (1.35 * f), y / (1.35 * f)) * 0.62 + N(x / (3.1 * f) + 17, y / (3.1 * f) + 17) * 0.38;
+      /* 低频负责结块，高频负责颗粒本身。全高频只是噪点，不是颗粒。 */
+      kd[i] = amt * ((1 - hi) * 0.72 + (0.68 - lw) * 0.85);
+    }
+  }
+  return { kd: kd, kl: kl };
+}
+
+/* 把场变成两张可以直接 composite 的画布。
+   压暗那张从白插值到 tint —— 灰噪 multiply 会把色场洗成脏灰，同色的深版不会。 */
+function texTile(kind, W, H, N, amt, tint, f) {
+  var F = texField(kind, W, H, N, amt, f), n = W * H;
+  var c = mkCanvas(W, H), g = c.getContext('2d'), d = g.createImageData(W, H), p = d.data;
+  for (var i = 0, j = 0; i < n; i++, j += 4) {
+    var k = F.kd[i]; k = k < 0 ? 0 : k > 1 ? 1 : k;
+    p[j] = 255 - (255 - tint[0]) * k;
+    p[j + 1] = 255 - (255 - tint[1]) * k;
+    p[j + 2] = 255 - (255 - tint[2]) * k;
+    p[j + 3] = 255;
+  }
+  g.putImageData(d, 0, 0);
+  var a = null;
+  if (F.kl) {
+    a = mkCanvas(W, H);
+    var ag = a.getContext('2d'), ad = ag.createImageData(W, H), q = ad.data;
+    for (var i2 = 0, j2 = 0; i2 < n; i2++, j2 += 4) {
+      var v = F.kl[i2]; v = v < 0 ? 0 : v > 1 ? 1 : v;
+      q[j2] = q[j2 + 1] = q[j2 + 2] = 255; q[j2 + 3] = v * 255;
+    }
+    ag.putImageData(ad, 0, 0);
+  }
+  return { mul: c, add: a };
+}
+/* 拿 mask 画布当模具：inv=false 只留 mask 覆盖处，inv=true 只留 mask 之外。
+   keep 是必须让开的矩形（标本槽）—— 质感可以铺在主体旁边，不能铺在主体身上。 */
+function maskedGrit(tile, mask, inv, keep) {
+  var c = mkCanvas(tile.width, tile.height), g = c.getContext('2d');
+  g.drawImage(tile, 0, 0);
+  g.globalCompositeOperation = inv ? 'destination-out' : 'destination-in';
+  g.drawImage(mask, 0, 0);
+  if (keep) {
+    g.globalCompositeOperation = 'destination-out';
+    g.filter = 'blur(' + Math.max(6, tile.width * 0.055) + 'px)';  /* 软边要够软，否则擦出个可读的方块，像水渍 */
+    g.fillStyle = '#000';
+    g.fillRect(keep[0], keep[1], keep[2], keep[3]);
+    g.filter = 'none';
+  }
+  return c;
+}
+/* 槽位有多少落在 mask 里 —— 用来决定质感该去场内还是场外 */
+function slotCover(mask, x, y, w, h) {
+  var g = mask.getContext('2d'), n = 0, hit = 0;
+  var d = g.getImageData(Math.max(0, x | 0), Math.max(0, y | 0),
+                         Math.max(1, Math.min(mask.width - (x | 0), w | 0)),
+                         Math.max(1, Math.min(mask.height - (y | 0), h | 0))).data;
+  for (var i = 3; i < d.length; i += 40) { n++; if (d[i] > 40) hit++; }
+  return n ? hit / n : 0;
 }
 
 var mkCanvas = function (W, H) { var c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
@@ -905,38 +1112,112 @@ function render(i, scale) {
 
   g.fillStyle = rgba(s.A); g.fillRect(0, 0, W, H);
 
-  /* 第二色场 */
-  var K = s.skeleton, slot = null;
-  g.fillStyle = rgba(s.B);
+  /* 第二色场画在自己的图层上 —— 有了这张图层，套印重影（错位再叠一次）和
+     质感区（拿它当模具）才有得依托。直接画在底上就什么都做不了。 */
+  var T = TEX[TEXTURE];
+  var band = Math.max(1, Math.min(W, H) * 0.012);
+  var fl = mkCanvas(W, H), fg = fl.getContext('2d');
+  fg.fillStyle = rgba(s.B);
+  /* 无论档位开不开，这三个随机数都先抽掉 —— 否则关掉质感会挪动整条随机流，
+     四个档位就不再是同一批图，对照也就无从谈起。 */
+  var rollGhost = rnd(), rollPatch = rnd(), rollInv = rnd(), rollGrain = rnd();
+
+  /* A · 堆墨：沿边描一圈压暗的同色，再裁回填充区内。
+     裁是必要的 —— 不裁就成了描边框，那是 UI 不是印刷。 */
+  function inkBuild() {
+    if (T.build <= 0) return;
+    fg.save();
+    fg.clip();
+    fg.globalAlpha = T.build;
+    fg.strokeStyle = rgba(mix(s.B, INK, 0.55));
+    fg.lineWidth = band * 2;
+    fg.stroke();
+    fg.restore();
+  }
+  var K = s.skeleton, slot = null, hasField = true;
   if (K === 'diagonal') {
     var d0 = rf(0.25, 0.65);
-    tornPath(g, [[0, H * d0], [W, H * rf(0.05, 0.45)], [W, H], [0, H]], 1.1); g.fill();
+    tornPath(fg, [[0, H * d0], [W, H * rf(0.05, 0.45)], [W, H], [0, H]], 1.1); fg.fill(); inkBuild();
     slot = [W * 0.12, H * 0.10, W * 0.60, H * 0.50];
   } else if (K === 'vsplit') {
     var vx = W * rf(0.34, 0.62);
-    tornPath(g, [[vx, 0], [W, 0], [W, H], [vx, H]], 1.0); g.fill();
+    tornPath(fg, [[vx, 0], [W, 0], [W, H], [vx, H]], 1.0); fg.fill(); inkBuild();
     slot = [vx - W * 0.30, H * 0.18, W * 0.62, H * 0.64];
   } else if (K === 'hsplit') {
     var hy = H * rf(0.34, 0.64);
-    tornPath(g, [[0, hy], [W, hy], [W, H], [0, H]], 1.0); g.fill();
+    tornPath(fg, [[0, hy], [W, hy], [W, H], [0, H]], 1.0); fg.fill(); inkBuild();
     slot = [W * 0.16, hy - H * 0.34, W * 0.68, H * 0.60];
   } else if (K === 'quad') {
-    g.fillRect(0, 0, W * 0.5, H * 0.5); g.fillRect(W * 0.5, H * 0.5, W * 0.5, H * 0.5);
+    fg.beginPath();
+    fg.rect(0, 0, W * 0.5, H * 0.5); fg.rect(W * 0.5, H * 0.5, W * 0.5, H * 0.5);
+    fg.fill(); inkBuild();
     slot = [W * 0.5, 0, W * 0.5, H * 0.5];
   } else if (K === 'inset') {
+    /* 没有第二色场。给质感区一块随机半幅当模具，否则这类图永远没材质。 */
+    hasField = false;
+    var vert = rnd() < 0.5, frac = rf(0.40, 0.58), far = rnd() < 0.5;
+    fg.fillStyle = '#000';
+    tornPath(fg, vert
+      ? (far ? [[W * (1 - frac), 0], [W, 0], [W, H], [W * (1 - frac), H]] : [[0, 0], [W * frac, 0], [W * frac, H], [0, H]])
+      : (far ? [[0, H * (1 - frac)], [W, H * (1 - frac)], [W, H], [0, H]] : [[0, 0], [W, 0], [W, H * frac], [0, H * frac]]), 1.0);
+    fg.fill();
     slot = [W * rf(0.14, 0.24), H * rf(0.14, 0.24), W * rf(0.56, 0.68), H * rf(0.50, 0.62)];
   } else if (K === 'scallop') {
-    scallopPath(g, 0, H * rf(0.42, 0.62), W, H, ri(3, 6), false); g.fill();
+    scallopPath(fg, 0, H * rf(0.42, 0.62), W, H, ri(3, 6), false); fg.fill(); inkBuild();
     slot = [W * 0.18, H * 0.08, W * 0.64, H * 0.42];
   } else {                                  /* band */
     var by = H * rf(0.30, 0.52), bh = H * rf(0.20, 0.34);
-    tornPath(g, [[0, by], [W, by], [W, by + bh], [0, by + bh]], 1.0); g.fill();
+    tornPath(fg, [[0, by], [W, by], [W, by + bh], [0, by + bh]], 1.0); fg.fill(); inkBuild();
     slot = [W * 0.14, by - H * 0.18, W * 0.52, bh + H * 0.34];
+  }
+
+  if (hasField) {
+    /* B · 套印不准：先把同一版错位叠一次，用 multiply 压在底色上。
+       正版盖住大部分，只在两侧漏出一条第三色 —— 那条才是印刷味。 */
+    if (T.ghost > 0) {
+      var ga = rollGhost * 6.2832, gd = Math.min(W, H) * 0.012 * T.ghost;
+      g.save();
+      g.globalAlpha = 0.55;
+      g.globalCompositeOperation = 'multiply';
+      g.drawImage(fl, Math.cos(ga) * gd, Math.sin(ga) * gd);
+      g.restore();
+    }
+    g.drawImage(fl, 0, 0);
   }
 
   /* 素材槽 */
   var sx = Math.round(slot[0]), sy = Math.round(slot[1]),
       sw = Math.round(slot[2]), sh = Math.round(slot[3]);
+
+  /* C · 质感区：只压一块，而且必须给主体让路。
+     先比一下槽位落在场内还是场外更少，往少的那边放；不放心的部分再软擦掉。
+     标本压在奶白卡上时卡是不透明的，质感本来就被盖住，不用让。 */
+  if (T.grit > 0 && rollPatch < T.patch) {
+    var inv;
+    if (!hasField) inv = false;
+    else if (s.card) inv = rollInv < 0.45;
+    else {
+      var covIn = slotCover(fl, sx, sy, sw, sh);
+      inv = covIn > 0.34;                      /* 主体在场里 → 质感去场外 */
+    }
+    var base = (hasField && !inv) ? s.B : s.A;
+    var tint = mix(base, INK, 0.5), NG = mkNoise(s.seed ^ 0x2f19);
+    var gsc = 0.70 + rollGrain * 0.9;          /* 同一种材质的粗细逐张变 */
+    var keep = s.card ? null : [sx - W * 0.02, sy - H * 0.02, sw + W * 0.04, sh + H * 0.04];
+    var tl = texTile(s.kit, W, H, NG, T.grit, tint, gsc);
+    g.save();
+    g.globalCompositeOperation = 'multiply';
+    g.drawImage(maskedGrit(tl.mul, fl, inv, keep), 0, 0);
+    g.restore();
+    if (tl.add) {                              /* 金属和折痕才有高光 */
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = 0.8;
+      g.drawImage(maskedGrit(tl.add, fl, inv, keep), 0, 0);
+      g.restore();
+    }
+  }
+
   /* 采一下槽位中心底下到底是什么色 —— 槽位常常压在第二色场上，
      只看 A 会导致深色场上画深色标本，直接消失。 */
   var probe = g.getImageData(Math.min(W - 1, sx + (sw >> 1)), Math.min(H - 1, sy + (sh >> 1)), 1, 1).data;
@@ -944,6 +1225,7 @@ function render(i, scale) {
 
   var lay = mkCanvas(W, H), lg = lay.getContext('2d');
   drawSlot(lg, sx, sy, sw, sh, s, N);
+  inkGrain(lay, N, T.ink, Math.max(9, W / 26));           /* D · 只碰标本的墨，不碰底色 */
   if (s.screen) screenRegion(lay, sx, sy, sw, sh, Math.max(2.2, sw / 62), rgba(s.col), N);
   g.drawImage(lay, rf(-1.5, 1.5) * sc, rf(-1.5, 1.5) * sc);
 
@@ -961,13 +1243,17 @@ function render(i, scale) {
     dryStroke(g, P, Math.max(2, W / rf(95, 150)), rgba(s.col));
   }
 
-  /* 纸基 */
-  var d = g.getImageData(0, 0, W, H), p = d.data;
-  for (var q = 0; q < p.length; q += 4) {
-    var v = (N(q % W / 2.2, (q / W | 0) / 2.2) - 0.5) * s.grain + (Math.random() - 0.5) * s.grain * 0.5;
-    p[q] += v; p[q + 1] += v; p[q + 2] += v;
+  /* E · 纸基：唯一的全局质感，且必须几乎不可见。
+     振幅随底色明度 —— 深底上颗粒显，浅底上颗粒藏，跟真纸一致。 */
+  if (T.fiber > 0) {
+    var amp = T.fiber * (0.6 + 0.8 * (1 - lum(s.A) / 255));
+    var d = g.getImageData(0, 0, W, H), p = d.data, gi = 0;
+    for (var gy = 0; gy < H; gy++) for (var gx = 0; gx < W; gx++, gi += 4) {
+      var v = (N(gx / 2.2, gy / 2.2) - 0.5) * amp + (rnd() - 0.5) * amp * 0.5;
+      p[gi] += v; p[gi + 1] += v; p[gi + 2] += v;
+    }
+    g.putImageData(d, 0, 0);
   }
-  g.putImageData(d, 0, 0);
   return cv;
 }
 
@@ -976,6 +1262,8 @@ function init(o) {
   if (o.count) CFG.count = o.count;
   if (o.seed !== undefined) CFG.seed = o.seed;
   if (o.scale) SCALE = o.scale;
+  if (o.texture !== undefined) TEXTURE = Math.max(0, Math.min(3, o.texture | 0));
+  FORCEKIT = o.kit || null;                    /* 只给调试用：把整批锁成同一种材质 */
   makeSpecs();
   return COLLAGE;
 }
@@ -986,11 +1274,12 @@ function attach(el, i) {
 }
 function meta(i) {
   var s = SPECS[i]; if (!s) return null;
-  return { skeleton: s.skeleton, viz: s.viz, zh: VIZ[s.viz][0], en: VIZ[s.viz][1], screened: s.screen };
+  return { skeleton: s.skeleton, viz: s.viz, zh: VIZ[s.viz][0], en: VIZ[s.viz][1],
+           screened: s.screen, kit: s.kit, kitZh: KITNAME[s.kit][0], kitEn: KITNAME[s.kit][1] };
 }
 
 var COLLAGE = {
-  init: init, attach: attach, meta: meta, render: render, materials: materials,
+  init: init, attach: attach, meta: meta, render: render, materials: materials, kits: function () { return KITS.filter(function (v, i, a) { return a.indexOf(v) === i; }); },
   skeletons: SKELETONS, viz: VIZ_KEYS,
   count: function () { return SPECS.length; },
   _setCanvasFactory: function (f) { mkCanvas = f; }
