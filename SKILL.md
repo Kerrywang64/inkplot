@@ -252,9 +252,12 @@ shape and texture.
 
 ## License
 
-MIT. Halftone screening, torn edges, dry-media strokes, and misregistration are printing
-traditions in the public domain. The grammar of statistical graphics is likewise public
-domain. Output is generated locally with no training-data provenance and is free for
-commercial use.
+MIT — use it, fork it, ship it commercially, no permission needed. Halftone screening,
+torn edges, dry-media strokes, and misregistration are printing traditions in the public
+domain. The grammar of statistical graphics is likewise public domain. Output is generated
+locally with no training-data provenance and is free for commercial use.
+
+If inkplot ends up in something you ship, a link back is appreciated — but that is a
+request, not a condition. The license is unmodified MIT and nothing here adds to it.
 
 Use your own brand name, mark, and copy if you ship this publicly.
