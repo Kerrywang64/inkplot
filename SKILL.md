@@ -1,16 +1,16 @@
 ---
 name: inkplot
-description: Generates editorial-grade abstract artwork from data-visualization primitives — pie, Venn, Sankey, Voronoi, attention matrix, persistence diagram, and 37 more — composed onto flat color fields with riso-print texture. Zero assets, zero image models, fully deterministic from a seed. Also ships a design-decision library (layout skeletons, font pairings, a palette with measured WCAG contrast, spacing and motion tokens, 30+ anti-patterns) and two scripts that numerically self-check any visual output. Use when the user needs blog headers, card thumbnails, section dividers, placeholder art, or an editorial/magazine/publication visual system; when they ask whether a color pair passes contrast, which font pairing to use, or what spacing scale to follow; or when generated artwork looks repetitive and needs to be measured rather than guessed at.
+description: Draws editorial-style abstract artwork in the browser out of real charts — pie, histogram, network, Sankey, Voronoi, attention matrix and 37 more — laid over flat colour areas with print-like texture. No image files, no image model, no network calls; the same seed always produces the same picture. Also includes a design reference (layout patterns, font pairings, a colour palette with measured contrast ratios, spacing and motion values, 30+ things not to do) and two scripts that measure generated artwork instead of guessing at it. Use when the user needs blog headers, card thumbnails, section dividers, placeholder art, or an editorial or magazine-style visual system; when they ask whether a colour pair passes contrast, which fonts to pair, or what spacing scale to use; or when generated artwork keeps coming out repetitive and needs measuring rather than eyeballing.
 license: MIT
 ---
 
 # inkplot
 
-Abstract artwork that means something. Every plate is built from a real
-data-visualization primitive, so it reads as information rather than decoration.
+Abstract artwork that still means something. Every image is built out of a real chart, so
+it reads as information rather than as decoration.
 
-No image model. No asset files. No network. Canvas draws every layer.
-Same seed, same output, every time.
+No image model. No asset files. No network. A browser canvas draws every layer. Same seed,
+same picture, every time.
 
 ---
 
@@ -24,124 +24,72 @@ Same seed, same output, every time.
 </script>
 ```
 
-Self-check any run:
+Check what came out:
 
 ```bash
-node measure.mjs      # stroke weight + ink coverage vs a measured baseline
-node diversity.mjs    # pairwise structural distance, catches repetition
+node measure.mjs      # line weight and ink coverage, against a measured baseline
+node diversity.mjs    # how different the plates are from each other
 ```
 
 ---
 
-## What a plate is
+## Six words used throughout
 
-One ground color, one second color field, one specimen. Three elements, hard cap.
+These are the only invented terms. Everything below depends on them.
+
+| Word | What it means |
+|---|---|
+| **plate** | one finished image |
+| **ground** | the background colour, filled corner to corner |
+| **field** | a second colour laid over part of the ground, with a torn-paper edge |
+| **specimen** | the chart drawn on top — the part that carries the meaning |
+| **skeleton** | how the frame is divided between ground and field |
+| **material** | the texture applied to one field |
+
+A plate is a ground, one field, one specimen. Three things, and that cap is a rule, not a
+default.
+
+Drawing order:
 
 ```
-ground fill → torn-edge color field → specimen → halftone screen → dry stroke → paper grain
+ground → field with torn edge → specimen → halftone (rarely) → dry stroke → paper fibre
 ```
 
 | Layer | What it does |
 |---|---|
-| Ground | Flat saturated fill, edge to edge |
-| Second field | One of 7 skeletons, torn edge, luminance delta ≥ 62 enforced |
-| Specimen | One of 43 data-viz primitives, 55–75% of its slot |
-| Screen | Halftone, tonal specimens only |
-| Dry stroke | Charcoal-weight line, 62% of plates get none |
-| Grain | Paper fiber, laid lines, wide unevenness |
+| Ground | Flat saturated colour, corner to corner |
+| Field | One of 7 skeletons, torn edge, brightness gap of 62 enforced |
+| Specimen | One of 43 charts, filling 55–75% of its slot |
+| Halftone | Dots, only for charts that are a solid fill to begin with |
+| Dry stroke | One heavy charcoal-weight line. 62% of plates get none |
+| Paper fibre | Barely visible, whole sheet |
 
 ---
 
-## Texture has an address
+## Why charts instead of patterns
 
-Texture is not a filter you drop on the finished image. On a real press it appears in
-specific places for specific mechanical reasons, and copying the placement is what makes
-it read as print instead of as a Photoshop overlay.
+Generative abstract patterns fail in a way that is invisible in one image and obvious in
+twenty: pull any single one out of the set and there is nothing to say about it.
 
-| Where | What happens | Coverage | Frequency |
-|---|---|---|---|
-| Field boundary | Ink squeezes and pools on the inner side | Band = 1.2% of the short edge, clipped inside the field | Every plate with a second field |
-| Registration | The plate lands off-mark, a third color shows in a sliver | Offset = 1.2% of the short edge × level | Every plate with a second field |
-| **One field** | **A material from the library below** | **One field only, ~40% of the frame** | **26 / 42 / 66% of plates by level** |
-| Specimen ink | Density drifts, fiber eats the edges | Ink pixels only | Every plate |
-| Whole sheet | Paper fiber | 100% | Amplitude ≤ 3/255 |
+A chart is *about* something before it is *shaped* like anything. A pie chart is about
+proportion. An attention matrix is about what a model looked at. A calendar heatmap is
+about which days were busy. Crop it, rotate it, cover half of it — the meaning survives.
 
-**The third row is the only one anybody sees, and it is the only one that must stay local.**
-A grain layer over the whole frame cancels itself out — if everything is textured, nothing
-is. The effect lives in the *seam* between a flat field and a material one. One textured
-zone per plate, never two.
-
-### The material library
-
-Nine materials, all procedural, no bitmaps. Each is a pair of fields: one that darkens
-through `multiply`, one that brightens through `lighter`. Splitting them is the whole
-trick — **metal without a highlight is just gray noise, and matte with a highlight is not
-matte.**
-
-| Material | Signature | Highlight |
-|---|---|---|
-| `grit` | Film grain: low-frequency clumping carries it, high frequency is only the speckle | — |
-| `matte` | Ultra-fine, near-even, low contrast. Powder coat | — |
-| `plaster` | Broad soft patches under fine pitting | — |
-| `linen` | Two crossed ridge frequencies, low-frequency modulation to break the moiré | — |
-| `roller` | Horizontal drag plus density bands at the drum period | — |
-| `vein` | Domain-warped fbm — long parallel bands, wood or marble | — |
-| `brushed` | Anisotropic streaks, stretched ~80:1 along one axis, one broad sheen | yes |
-| `foil` | Two or three smooth angled sheen bands, plus paper fiber on top | yes |
-| `crease` | Signed distance to a few random lines: dark on one side, light on the other | yes |
-
-`foil` and `crease` carry a fine grain layer on purpose. A pure smooth ramp slides into
-looking like a 3D specular highlight, and that is a different medium.
-
-```js
-COLLAGE.init({ texture: 3 });         // 0 off · 1 light · 2 mid · 3 heavy (default)
-COLLAGE.init({ kit: 'brushed' });     // lock every plate to one material, for review
-COLLAGE.meta(i).kitEn                 // which material this plate drew
-```
-
-### Two rules the texture may never break
-
-**Never cover the chart.** The specimen is the reason the plate means anything. Before
-placing a material, measure how much of the specimen slot falls inside the field; if it is
-over a third, put the material on the *other* side, then soft-erase the slot from the mask
-anyway. Texture belongs beside the subject, not on top of it — which is also where it sits
-in the reference material.
-
-**Never build a field out of repeated dots.** A dot-screen gradient across a whole color
-field is the cheapest way to fake print and it is unpleasant to look at up close. Halftone
-is reserved for specimens that are genuinely a continuous fill — `nebula`, `stream`,
-`area`. Screening a matrix, a calendar, or a waffle turns a grid of cells into a grid of
-dots; screening a contour or a scatter breaks the lines into dashes and the chart is gone.
-
-Two more failures worth naming, because both shipped and both looked wrong:
-
-- **Do not erode alpha to fake uneven ink.** Punching holes in a solid field lets the
-  ground show through in clouds. That reads as mold, not printing. Vary luminance
-  additively inside the ink instead, and never touch alpha on a solid.
-- **Do not multiply gray noise over a color field.** Gray desaturates and the field turns
-  dirty. Interpolate white → *the field's own color mixed 50% toward ink*, then multiply.
-  Same hue, more ink.
-
-Level 0 is not a degraded mode — flat output is correct for UI, favicons, and anything
-under 80px, where texture is noise.
-
-The dial changes nothing but texture. Same seed at level 0 and level 3 gives the same
-composition, the same colors, and the same specimen in the same place. If that is not true
-of a change you make, the comparison is worthless — draw every random number
-unconditionally, whether or not the level uses it.
+That is also why these images still work at 120 pixels wide. At that size nobody is reading
+detail; they are recognising a silhouette they already know.
 
 ---
 
-## The 43 specimens
+## The 43 charts
 
-| Family | Specimens |
+| Family | Charts |
 |---|---|
 | Distribution | histogram · lollipop · box plot · violin · beeswarm · ridgeline · waffle |
 | Proportion | pie · donut · rose · treemap · circle pack · Venn |
-| Relation | network · tree · dendrogram · chord · Sankey · arc diagram · matrix · parallel coords |
-| Trend | line · area · stream · loss curve · bump · slope · timeline · spiral |
+| Relationship | network · tree · dendrogram · chord · Sankey · arc diagram · matrix · parallel coordinates |
+| Change over time | line · area · stream · loss curve · bump · slope · timeline · spiral |
 | Space | scatter · contour · hexbin · Voronoi · vector field · nebula · calendar heatmap |
-| Modern | embedding projection · attention matrix · top-k · persistence diagram · radar · ternary · gauge |
+| Machine learning | embedding projection · attention matrix · top-k · persistence diagram · radar · ternary · gauge |
 
 ## The 7 skeletons
 
@@ -151,113 +99,229 @@ unconditionally, whether or not the level uses it.
 
 ## API
 
-| Call | Returns |
+| Call | What it does |
 |---|---|
-| `COLLAGE.init({ count, seed, scale, texture })` | Self, after generating specs |
-| `COLLAGE.attach(el, i)` | Renders plate `i` into an `<img>` or container |
-| `COLLAGE.render(i, scale)` | A `<canvas>` |
-| `COLLAGE.meta(i)` | `{ skeleton, viz, zh, en, screened }` — use it for captions |
-| `COLLAGE.materials([{ img }])` | Replaces specimens with your own cut-out images |
+| `COLLAGE.init({ count, seed, scale, texture, kit })` | Works out every plate up front. Returns itself |
+| `COLLAGE.attach(el, i)` | Draws plate `i` into an `<img>` or a container |
+| `COLLAGE.render(i, scale)` | Hands back a `<canvas>` |
+| `COLLAGE.meta(i)` | `{ skeleton, viz, zh, en, screened, kit, kitEn }` — use it for captions |
+| `COLLAGE.materials([{ img }])` | Swaps the charts out for your own cut-out images |
+| `COLLAGE.kits()` | The list of material names |
 
 ---
 
-## Design rules
+## The rules
 
 These are enforced in code, not suggested.
 
-**Three elements per plate.** Ground, one field, one specimen. A fourth element does
-not add richness — it hides the structural difference between plates, and every plate
-starts looking the same.
+### A plate gets three things and then stops
 
-**Luminance delta ≥ 62 between color fields.** Two colors of similar lightness splitting
-a frame fight each other. The constraint is hardcoded; the random number generator does
-not get a vote.
+Ground, one field, one specimen.
 
-**Variation comes from instances, not from inventory.** One specimen appearing ten times
-in ten different forms beats ten specimens appearing once each. Every instance gets a
-transform: rotation, mirror, zoom-to-bleed crop, one of five stroke modes.
+The temptation is always a fourth thing — one more shape, one more line, one more colour.
+It never makes a picture richer. It makes every plate look like every other plate, because
+the clutter drowns out the one thing that actually differs between them: the composition
+underneath.
 
-Adding more specimens only lowers the frequency of repetition. It does not fix repetition.
+### The two colours must be 62 apart in brightness
 
-**Bold color, once per plate.** Thirty fields across six families — earth, green, teal-blue,
-purple-pink, high-saturation accent, neutral. Pick a family, then jump out of it 34% of
-the time. Never twice.
+62 steps on the 0–255 scale, measured as luminance.
 
-**Measure instead of guessing.** "Looks wrong but I can't say why" is the most expensive
-state to be in.
+The test to keep in mind: **print the plate in black and white. Can you still tell it is
+two colours?** If not, the two areas fight and the image goes muddy. Two mid-tone colours
+that look clearly different on screen very often fail this — which is exactly why the
+number is hardcoded and the random number generator does not get a vote.
 
-`measure.mjs` estimates stroke weight by **area-to-edge ratio** — a stroke of length `l`
-and width `w` has area `w·l` and roughly `2l` edge pixels, so `w ≈ 2·area ÷ edge`. This is
-robust against antialiasing and compression noise; run-length mode is not.
+### Vary how you draw, not what you draw
 
-`diversity.mjs` downsamples each plate to 24×24, subtracts the mean to remove ground
-brightness, and takes pairwise L2 distance. Optimizing ink coverage alone silently
-destroys diversity — both numbers have to be watched together.
+Take one pie chart. Rotate it, mirror it, zoom in until it runs off the edge, redraw its
+lines heavier. That is ten images that do not look alike.
 
-**Reproducible over surprising.** Same seed plus same parameters equals identical output.
-"Run it again, it might be better" is a lottery, not a design process.
+Now take ten *different* charts and draw each once, same size, same position. That is ten
+images that all feel the same, because the only thing that changed was a small shape inside
+an unchanged layout.
+
+So adding chart types does not fix repetition. It only makes repetition rarer. What fixes
+it is transforming each instance: rotation, mirroring, a zoomed-in crop that bleeds off the
+frame, one of five line treatments.
+
+### Bold colour, once per plate
+
+Thirty colours in six families — earth, green, teal-blue, purple-pink, high-saturation
+accent, neutral. Pick a family for the ground, then jump to a different family for the
+second colour about a third of the time. Never two loud colours in one plate.
+
+### Measure instead of guessing
+
+"It looks wrong but I can't say why" is the most expensive place to be, because you cannot
+tell whether a change helped.
+
+`measure.mjs` works out line weight from **area divided by edge length**. A stroke `l` long
+and `w` wide covers `w × l` pixels and has roughly `2l` pixels of edge, so `w ≈ 2 × area ÷
+edge`. The obvious alternative — measure runs of dark pixels, take the most common length —
+is destroyed by anti-aliasing and compression. This is not.
+
+`diversity.mjs` shrinks each plate to 24×24 grey pixels, subtracts the average brightness
+so a dark plate and a light plate are not counted as different just for being dark and
+light, then measures the distance between every pair. **Watch the smallest number**, since
+that is your most repetitive pair.
+
+Watch both together. Ink coverage is a single number, so it can be optimised on its own —
+and doing that produces twenty plates that all hit the target and all look the same. That
+is not hypothetical; it happened here, and it is why the second script exists.
+
+### Reproducible beats surprising
+
+Same seed plus same settings equals an identical picture. "Run it again, it might come out
+better" is a lottery, not a process.
+
+---
+
+## Texture has an address
+
+On a press, texture is not spread evenly. Ink pools where two colours meet. The plate lands
+slightly off-mark and a sliver of a third colour shows. Paper has a grain. Each of those
+happens somewhere specific, and copying the *placement* is what makes an image read as
+printed instead of as filtered.
+
+| Where | What happens | How much | How often |
+|---|---|---|---|
+| Where two colours meet | Ink pools on the inner side | Band of 1.2% of the short edge, clipped inside the field | Every plate that has a field |
+| Registration | Colour lands off-mark, sliver of a third colour shows | Offset 1.2% of the short edge × level | Every plate that has a field |
+| **One field** | **A material from the library below** | **That field only, about 40% of the frame** | **26 / 42 / 66% of plates, by level** |
+| The chart's ink | Density drifts, fibre eats the edges | Only pixels that have ink | Every plate |
+| Whole sheet | Paper fibre | Everywhere | Amplitude 3 out of 255 |
+
+**Row three is the only one anybody notices, and it is the only one that has to stay
+local.** A grain layer over the whole frame cancels itself out — if everything is textured,
+nothing is. The effect lives in the seam between a flat area and a textured one. One
+textured area per plate, never two.
+
+### The material library
+
+Nine materials, all drawn procedurally, no bitmaps. Each one is two layers: one that
+darkens (multiply) and one that brightens (lighter). Splitting them is the whole trick —
+**metal without a highlight is just grey noise, and matte with a highlight is not matte.**
+
+| Material | What it looks like | Highlight |
+|---|---|---|
+| `grit` | Film grain. Low-frequency clumping carries it; the fine speckle is only the surface | — |
+| `matte` | Very fine, very even, low contrast. Powder coating | — |
+| `plaster` | Broad soft patches with fine pitting on top | — |
+| `linen` | Two crossed ridge patterns, wobbled slightly so it does not moiré | — |
+| `roller` | Horizontal drag marks plus density bands at the roller's circumference | — |
+| `vein` | Wood grain. Noise bends the coordinates before the stripes are drawn, so they wander | — |
+| `brushed` | Brushed metal. Streaks stretched about 80:1 along one axis, with one broad sheen | yes |
+| `foil` | Two or three smooth angled bands of reflection, with paper fibre over the top | yes |
+| `crease` | Folded paper. Distance to a few random fold lines: dark on one side, light on the other | yes |
+
+`foil` and `crease` carry that fine grain layer on purpose. A perfectly smooth gradient
+slides into looking like a 3D specular highlight, which is a different medium entirely.
+
+```js
+COLLAGE.init({ texture: 3 });      // 0 off · 1 light · 2 mid · 3 heavy (default)
+COLLAGE.init({ kit: 'brushed' });  // lock every plate to one material, for reviewing
+COLLAGE.meta(i).kitEn              // which material this plate used
+```
+
+Level 0 is not a broken mode. Flat output is correct for interface elements, favicons, and
+anything under 80 pixels, where texture is only noise.
+
+### Two rules texture may never break
+
+**Never cover the chart.** The chart is the reason the plate means anything. Before placing
+a material, measure how much of the chart's slot falls inside that field; if it is more
+than a third, put the material on the other side instead, then softly erase the slot out of
+the mask anyway as a backstop. Texture belongs beside the subject, not on top of it — which
+is also where it sits in the reference material this style comes from.
+
+**Never build a field out of repeated dots.** A dot-screen gradient across a whole colour
+area is the cheapest possible way to fake print and it is unpleasant to look at close up.
+Halftone dots are reserved for charts that are a continuous fill to begin with — `nebula`,
+`stream`, `area`. Screening a matrix, a calendar or a waffle turns a grid of cells into a
+grid of dots; screening a contour or a scatter breaks the lines into dashes, and the chart
+is gone.
+
+### Two things that were shipped and looked wrong
+
+- **Do not erase transparency to fake uneven ink.** Punching holes in a solid colour lets
+  the background show through in clouds. That reads as mould, not as printing. Vary the
+  brightness inside the ink instead, and never touch transparency on a solid area.
+- **Do not multiply grey noise over a colour.** Grey drains the saturation and the colour
+  goes dirty. Blend from white toward *that colour mixed halfway to ink*, then multiply.
+  Same hue, more ink.
+
+### One thing to get right when changing the dial
+
+The texture level must change nothing except texture. Same seed at level 0 and level 3
+should give the same composition, the same colours, the same chart in the same place —
+otherwise there is no way to judge what the dial did. In practice that means **drawing
+every random number unconditionally**, whether or not the current level uses it. Skipping a
+random draw inside an `if` shifts everything downstream and silently produces a different
+picture.
 
 ---
 
 ## Baselines
 
-Measured against 14 line-art editorial illustrations sampled from a production site.
+Measured against 14 editorial illustrations.
 
-| Metric | Reference (q25/median/q75) |
-|---|---|
-| Stroke weight, as 1/N of frame width | 80 / 106 / 122 |
-| Ink coverage % | 1.3 / 4.3 / 8.6 |
-| Same-specimen pairwise distance | ≥ cross-specimen distance |
+| | 25th pct | median | 75th pct |
+|---|---|---|---|
+| Line weight, as a fraction of frame width | 1/80 | 1/106 | 1/122 |
+| Share of the page covered in ink | 1.3% | 4.3% | 8.6% |
+| Distance between two plates using the same chart | should be no smaller than between plates using different charts | | |
 
 `measure.mjs` prints your numbers next to these.
 
 ---
 
-## Design decisions
+## Design reference
 
-Separate from artwork. Read before building an interface, not while.
+Separate from the artwork. Read it before building an interface, not during.
 
-| File | Contents |
+| File | What is in it |
 |---|---|
-| `references/design-system.md` | Palette tokens with measured contrast ratios, font pairings, type and spacing scales, motion specs, 6 layout skeletons, delivery checklist |
-| `references/anti-patterns.md` | 30+ prohibitions, each as `symptom → why it fails → fix` |
+| `references/design-system.md` | Colour tokens with measured contrast ratios, font pairings, type and spacing scales, motion values, 6 layout patterns, a delivery checklist |
+| `references/anti-patterns.md` | 30+ prohibitions, each written as *symptom → why it fails → what to do instead* |
 
-Five that get violated most:
+The five that get broken most often:
 
-1. **Clay `#C66042` is never body-link or button-fill.** 3.53:1 on paper, 4.08:1 for white
-   text on it. Both fail 4.5:1. Use rust `#A33F2D` (5.50 / 6.35).
-2. **No dark mode.** This system simulates paper. Paper has no dark mode.
-3. **No shadows for hierarchy.** Use rules, whitespace, and background steps. Shadows are
-   for things that genuinely float — lightbox, dropdown, toast.
-4. **No pill radii, no weights above 700.** The first is SaaS vocabulary; the second reads
-   dirty on warm paper.
-5. **Never remove `outline`.** Deleting focus rings evicts every keyboard user.
+1. **Clay `#C66042` is never a body link or a button fill.** It measures 3.53:1 against
+   paper, and 4.08:1 for white text sitting on it. Both are under the 4.5:1 minimum. Use
+   rust `#A33F2D` instead — 5.50 and 6.35.
+2. **No dark mode.** This system imitates paper, and paper does not have a dark mode.
+3. **No shadows for hierarchy.** Use rules, whitespace, and steps in background colour.
+   Shadows are for things that genuinely float: a lightbox, a dropdown, a toast.
+4. **No pill-shaped corners, no font weight above 700.** The first is SaaS vocabulary; the
+   second goes muddy on warm paper.
+5. **Never remove the focus outline.** Deleting it evicts every keyboard user from the
+   interface.
 
 ---
 
-## Bring your own material
+## Using your own images instead
 
 ```js
 COLLAGE.materials([{ img: someImageElement }, ...]);
 ```
 
-Supplied images replace specimens. Field splitting, torn edges, and halftone screening
-still apply.
+Your images take the place of the charts. The colour split, the torn edges and the texture
+all still happen.
 
-Selection criteria: cut out or white background; single object, not a scene; black and
-white or very low saturation — color comes from the fields, the material supplies only
-shape and texture.
+What works: cut out or on a white background; a single object, not a scene; black and white
+or nearly so. Colour comes from the fields — the image only has to supply a shape.
 
 ---
 
 ## License
 
-MIT — use it, fork it, ship it commercially, no permission needed. Halftone screening,
-torn edges, dry-media strokes, and misregistration are printing traditions in the public
-domain. The grammar of statistical graphics is likewise public domain. Output is generated
-locally with no training-data provenance and is free for commercial use.
+MIT — use it, fork it, ship it commercially, no permission needed. Halftone screening, torn
+edges, dry-media strokes and misregistration are printing traditions in the public domain,
+and the grammar of statistical charts is public domain too. Output is generated locally, has
+no training data behind it, and is free for commercial use.
 
 If inkplot ends up in something you ship, a link back is appreciated — but that is a
-request, not a condition. The license is unmodified MIT and nothing here adds to it.
+request, not a condition. The licence is unmodified MIT and nothing here adds to it.
 
-Use your own brand name, mark, and copy if you ship this publicly.
+Use your own brand name, mark and copy if you ship this publicly.
