@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" width="100%" alt="riso-press">
+  <img src="assets/banner.png?v=2" width="100%" alt="riso-press">
 </p>
 
 <h1 align="center">riso-press</h1>
@@ -17,7 +17,7 @@
 
 ---
 
-<img src="assets/gallery.png" width="100%" alt="gallery">
+<img src="assets/gallery.png?v=2" width="100%" alt="gallery">
 
 ---
 
