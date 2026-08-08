@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 const js = fs.readFileSync('scripts/collage.js', 'utf8');
-const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 const p = await b.newPage({ viewport: { width: 900, height: 700 } });
 await p.setContent('<body></body>');
 await p.addScriptTag({ content: js });
