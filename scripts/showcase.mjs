@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+/* 触发 CI 重渲：本文件在 assets.yml 的 paths 列表里 */
 import fs from 'fs';
 const js = fs.readFileSync('scripts/collage.js','utf8');
 const S = [11,22,33,44,55,66,77,88,99,101].map(x=>20260808+x*7919);
