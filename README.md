@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Abstract images that still mean something.</b><br>
-  43 kinds of chart · 7 ways to split the frame · 9 materials · no image files, no image model
+  43 charts · 7 ways to split the frame · 9 materials · no image files, no image model
 </p>
 
 <p align="center">
@@ -22,29 +22,11 @@
 
 ---
 
-## What this is
-
-inkplot draws the kind of artwork that sits at the top of a blog post, on a card thumbnail,
-or between sections of a long page. Editorial artwork — abstract, printed-looking, a bit
-severe.
-
-The difference from most generative art is that every image is built out of a **real
-chart**. A pie chart, a histogram, a network diagram, a Sankey flow. So the result is
-abstract, but it is never only a pattern. There is something in it to read.
-
-Nothing gets downloaded and no image model gets called. A browser `<canvas>` draws every
-layer in a few hundred milliseconds. Hand it the same seed number twice and you get back
-the same picture, pixel for pixel.
-
----
-
 ## Install
 
 ```bash
 git clone https://github.com/Kerrywang64/inkplot ~/.claude/skills/inkplot
 ```
-
-## Use
 
 ```html
 <script src="scripts/collage.js"></script>
@@ -54,42 +36,56 @@ git clone https://github.com/Kerrywang64/inkplot ~/.claude/skills/inkplot
 </script>
 ```
 
-That is the whole API for normal use. `COLLAGE.meta(i)` hands back a label for each image
-if you want captions.
+That is the whole API for normal use. `COLLAGE.meta(i)` returns a label if you want captions.
 
 ---
 
-## Six words this project uses
+## What this is
 
-Everything below depends on these. They are the only invented words in the documentation.
+inkplot draws editorial artwork: blog headers, card thumbnails, section dividers.
+
+Every image is built from a real chart — pie, histogram, network, Sankey. Abstract, but
+never only a pattern. There is something in it to read.
+
+Nothing is downloaded. No image model is called. A canvas draws every layer in a few
+hundred milliseconds. Same seed, same picture, pixel for pixel.
+
+---
+
+## The words
+
+Six invented, five borrowed from printing. Everything below uses them bare.
 
 | Word | What it means |
 |---|---|
 | **plate** | one finished image |
-| **ground** | the background colour, filled corner to corner |
-| **field** | a second colour laid over part of the ground, with a torn-paper edge |
-| **specimen** | the chart drawn on top — the part that carries the meaning |
-| **skeleton** | how the frame gets divided between ground and field: diagonally, split down the middle, a horizontal band, and four more |
-| **material** | the texture applied to one field: film grain, linen, brushed metal, and six more |
+| **ground** | the background colour, corner to corner |
+| **field** | a second colour over part of the ground, with a torn edge |
+| **specimen** | the chart on top — the part that carries the meaning |
+| **skeleton** | how the frame is divided between ground and field |
+| **material** | the texture applied to one field |
+| halftone | a solid tone printed as a field of small dots |
+| registration | each colour is a separate pass on the press; land one a hair off and a sliver of a third colour shows |
+| bleed | zoomed past the frame edge, so the frame cuts the image off |
+| anti-aliasing | the soft grey pixels a browser paints along an edge |
+| luminance | brightness weighted the way the eye sees it — green counts far more than blue |
 
-So a plate is a ground, one field on top of it, and one specimen on top of that. Three
-things. That is the entire recipe.
+A plate is a ground, one field, one specimen. Three things. That is the whole recipe.
 
 ---
 
-## Why charts instead of random patterns
+## Why charts and not patterns
 
-Generative abstract art has a failure mode that is hard to see in one image and obvious in
-twenty: pull any single picture out of the set and there is nothing to say about it. It is
-decoration, and decoration all looks alike.
+Generative patterns fail in a way you cannot see in one image and cannot miss in twenty:
+pull any single one out and there is nothing to say about it. It is decoration, and
+decoration all looks alike.
 
-A chart does not have that problem, because a chart is *about* something before it is
-*shaped* like anything. A pie chart is about proportion. A network diagram is about who is
-connected to whom. A calendar heatmap is about which days were busy. Crop it, rotate it,
-cover half of it with a colour field — the shape still carries that.
+A chart is *about* something before it is *shaped* like anything. Proportion. Who is
+connected to whom. Which days were busy. Crop it, rotate it, cover half of it — that
+survives.
 
-This is also why the images survive being shrunk. At 120 pixels wide you are not reading
-detail, you are recognising a silhouette you already know.
+Which is also why these hold up small. At 120 pixels nobody reads detail. They recognise an
+outline they already know.
 
 ---
 
@@ -102,151 +98,139 @@ timeline, spiral, scatter, contour, hexbin, Voronoi, vector field, nebula, calen
 heatmap, embedding projection, attention matrix, top-k, persistence diagram, radar,
 ternary, gauge.
 
-**7 skeletons.** Diagonal, split vertically, split horizontally, quartered, inset panel,
-scalloped edge, horizontal band.
+**7 skeletons.** Diagonal, vertical split, horizontal split, quartered, inset panel,
+scalloped edge, band.
 
 **9 materials.** Film grain, matte, plaster, linen, ink roller, wood grain, brushed metal,
 foil, crease.
 
-**A design reference.** Layout patterns, font pairings, a colour palette with contrast
-ratios that were actually measured, spacing and motion values, and 30-plus things not to
-do — each written as *symptom → why it fails → what to do instead*.
+**A design reference.** Layout patterns, font pairings, a palette with measured contrast
+ratios, spacing and motion values, 30+ anti-patterns as *symptom → why it fails → fix*.
 
-**Two scripts that measure your own output**, so "this looks wrong" can become a number you
-can compare against last week's number.
+**Two scripts that measure the output**, so "this looks wrong" becomes a number.
 
 ---
 
-## Three rules, and the reason each one exists
+## Three rules
 
-### A plate gets three things and then stops
+### Three things per plate, then stop
 
-Ground, one field, one specimen. Nothing else.
+Ground, one field, one specimen.
 
-The temptation is always to add a fourth thing — one more shape, one more line, one more
-colour. It never makes the picture richer. It makes every plate look like every other
-plate, because the added clutter drowns out the one thing that actually differs between
-them, which is the composition underneath.
+A fourth thing does not make the picture richer. It makes every plate look like every other
+plate: the clutter drowns out the composition, and the composition is the only thing that
+differs between them.
 
-### The two colours must be far apart in brightness
+### The two colours must be 62 apart in brightness
 
-Specifically 62 steps apart on the 0–255 scale.
+62 steps on the 0–255 scale, measured as luminance.
 
-The test worth keeping in your head: **print the plate in black and white. Can you still
-tell it is two colours?** If not, the two areas fight each other and the picture goes
-muddy — this happens constantly with two mid-tone colours that look different on screen but
-are the same weight. The rule is enforced in code. The random number generator does not get
-a vote on it.
+The test: print the plate in black and white. Can you still tell it is two colours? If not,
+the two areas fight and the image goes muddy. Two mid-tones that look obviously different
+on screen fail this constantly. So it is hardcoded. The random number generator does not
+get a vote.
 
 ### Vary how you draw, not what you draw
 
-Take one pie chart. Rotate it. Mirror it. Zoom in until it runs off the edge of the frame.
-Redraw its lines heavier. You now have ten images that do not look alike.
+One pie chart — rotated, mirrored, zoomed to bleed, redrawn heavier: ten images that do not
+look alike.
 
-Now take ten *different* charts and draw each one once, always the same size, always in the
-same place. You get ten images that all feel the same, because the only thing that changed
-was a small shape in the middle of an unchanged layout.
+Ten different charts, each drawn once, same size, same place: ten images that all feel the
+same. Only a small shape changed. The layout never did.
 
-That is why adding more chart types does not fix repetition — it only makes repetition
-rarer. What fixes repetition is transforming every instance: rotation, mirroring, a
-zoomed-in crop, one of five line treatments.
+So more chart types does not fix repetition. It makes repetition rarer. Transforming each
+instance fixes it: rotation, mirror, a crop zoomed to bleed, one of five line treatments.
 
 Full rules in [`SKILL.md`](SKILL.md).
 
 ---
 
-## Texture goes in one place, not everywhere
+## Texture goes in one place
 
-On a real press, texture is not spread evenly. Ink pools where two colours meet. The plate
-lands slightly off-register and a sliver of a third colour shows. The paper has a grain you
-can barely see. Each of those happens somewhere specific, and copying the *placement* is
-what makes an image read as printed rather than as filtered.
+On a press, texture is not spread evenly. Ink pools where two colours meet. Registration
+slips and a third colour shows. Paper has a grain. Each happens somewhere specific, and
+copying the *placement* is what makes an image read as printed instead of filtered.
 
-So inkplot puts texture in five places, and only one of them is meant to be noticed:
+Five places. One of them is meant to be noticed.
 
 | Where | What happens | How much |
 |---|---|---|
-| Where two colours meet | Ink pools on the inner side | A band 1.2% of the short edge |
-| Registration | The colour lands off-mark, a sliver of a third colour shows | Offset 1.2% of the short edge |
-| **One field** | **A material — grain, linen, brushed metal…** | **That field only, about 40% of the frame** |
-| The chart's own ink | Density drifts, paper fibre eats the edges | Only where there is ink |
+| Where two colours meet | Ink pools on the inner side | Band of 1.2% of the short edge |
+| Registration | A sliver of a third colour along the join | Offset 1.2% of the short edge |
+| **One field** | **A material — grain, linen, brushed metal…** | **That field only, ~40% of the frame** |
+| The chart's ink | Density drifts, fibre eats the edges | Ink pixels only |
 | The whole sheet | Paper fibre | Barely visible on purpose |
 
-The third row is the one people see, and it is the one that has to stay local. **A grain
-layer over the whole image cancels itself out** — if everything is textured, nothing is.
-The effect lives in the seam between a flat area and a textured one. One textured area per
-plate, never two.
+Row three is the one people see, and the only one that has to stay local. **Grain over the
+whole frame cancels itself out.** If everything is textured, nothing is. The effect lives in
+the seam between a flat area and a textured one. One textured area per plate, never two.
 
-Two rules the texture is never allowed to break:
+Two things texture may never do:
 
-- **Never cover the chart.** The chart is the reason the image means anything. Before
-  placing a material, inkplot measures how much of the chart sits inside that field, and if
-  it is more than a third, the material goes on the other side instead. Texture belongs
-  beside the subject, not on top of it.
-- **Never build a field out of repeated dots.** A dot-screen gradient across a whole colour
-  area is the cheapest way to fake print, and it is unpleasant to look at close up.
+- **Cover the chart.** The chart is why the image means anything. inkplot measures how much
+  of the chart sits inside that field; over a third, the material goes on the other side.
+  Texture belongs beside the subject, not on it.
+- **Build a field out of repeated dots.** A dot gradient across a whole colour area is the
+  cheapest way to fake print and it is unpleasant up close.
 
 ```js
 COLLAGE.init({ texture: 3 });      // 0 off · 1 light · 2 mid · 3 heavy (default)
-COLLAGE.init({ kit: 'brushed' });  // lock every plate to one material, for reviewing
+COLLAGE.init({ kit: 'brushed' });  // lock every plate to one material, for review
 ```
 
-Level 0 is not a broken mode. Flat output is the right answer for interface elements,
-favicons, and anything under 80 pixels, where texture is just noise.
+Level 0 is not a broken mode. Flat is correct for interface elements, favicons, and
+anything under 80 pixels, where texture is only noise.
 
 ---
 
-## Checking your own output
+## Checking the output
 
 ```bash
-node measure.mjs      # line weight and how much ink is on the page
-node diversity.mjs    # how different the plates actually are from each other
+node measure.mjs      # line weight, ink coverage
+node diversity.mjs    # how different the plates actually are
 ```
 
-**Line weight** is worked out from area divided by edge length. A stroke that is `l` long
-and `w` wide covers `w × l` pixels and has about `2l` pixels of edge, so `w ≈ 2 × area ÷
-edge`. The obvious alternative — measuring runs of dark pixels and taking the most common
-length — gets ruined by anti-aliasing and JPEG artefacts. This one does not.
+**Line weight** comes from area divided by edge length. A stroke `l` long and `w` wide
+covers `w × l` pixels and has about `2l` pixels of edge, so `w ≈ 2 × area ÷ edge`. The
+obvious alternative — measure runs of dark pixels, take the most common length — dies to
+anti-aliasing and compression. This does not.
 
 **Diversity** shrinks each plate to 24×24 grey pixels, subtracts the average brightness so
-that a dark plate and a light plate aren't counted as different just for being dark and
-light, and then measures the distance between every pair. The number to watch is the
-*smallest* distance, because that is your most repetitive pair.
+a dark plate and a light plate do not count as different for being dark and light, then
+measures every pair. Watch the smallest number. That is your most repetitive pair.
 
-Watch both numbers together. Ink coverage is a single number, which means it can be
-optimised on its own — and if you do that, you end up with twenty plates that all hit the
-target and all look identical. That happened here. It is why the second script exists.
+Watch both. Ink coverage is one number, so it can be optimised alone — and that produces
+twenty plates that all hit the target and all look the same. That happened here. It is why
+the second script exists.
 
-Measured against 14 editorial illustrations for comparison:
+Against 14 editorial illustrations:
 
-| | 25th pct | median | 75th pct |
+| | 25th | median | 75th |
 |---|---|---|---|
 | Line weight, as a fraction of frame width | 1/80 | 1/106 | 1/122 |
 | Share of the page covered in ink | 1.3% | 4.3% | 8.6% |
 
 ---
 
-## Using your own images instead
+## Your own images instead
 
 ```js
 COLLAGE.materials([{ img: someImageElement }, ...]);
 ```
 
-Your images take the place of the charts. Everything else still happens: the colour split,
-the torn edges, the texture.
+They take the place of the charts. Colour split, torn edges and texture still apply.
 
-What works: something cut out or on a white background, a single object rather than a
-scene, black and white or nearly so. The colour comes from the fields — your image only
-needs to supply a shape.
+What works: cut out or on white; one object, not a scene; black and white or nearly. Colour
+comes from the fields. The image only supplies a shape.
 
 ---
 
 ## License
 
 MIT — use it, fork it, ship it commercially, no permission needed. Halftone screening, torn
-edges, dry-media strokes and misregistration are printing traditions in the public domain,
-and the grammar of statistical charts is public domain too. Output is generated on your own
-machine, has no training data behind it, and is free for commercial use.
+edges, dry-media strokes and misregistration are printing traditions in the public domain.
+So is the grammar of statistical charts. Output is generated locally, has no training data
+behind it, and is free for commercial use.
 
-If inkplot ends up in something you ship, a link back is appreciated — but that is a
-request, not a condition. The licence is unmodified MIT and nothing on this page adds to it.
+If inkplot ends up in something you ship, a link back is appreciated — a request, not a
+condition. The licence is unmodified MIT and nothing on this page adds to it.
