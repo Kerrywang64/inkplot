@@ -1,7 +1,5 @@
 import { chromium } from 'playwright';
-/* 触发 CI 重渲：本文件在 assets.yml 的 paths 列表里 */
 import fs from 'fs';
-/* v2 */
 const js = fs.readFileSync('scripts/collage.js','utf8');
 const S = [11,22,33,44,55,66,77,88,99,101].map(x=>20260808+x*7919);
 /* 用户挑的 16 张，按主色从多候选里定位到的 (种子, 序号) */
@@ -32,9 +30,9 @@ await p.evaluate(rows => {
   document.body.style.background='#EEEAE1';
   document.body.innerHTML =
    '<div style="padding:52px 56px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">'+
-     '<div style="font:600 13px/1 ui-monospace;letter-spacing:.34em;color:#8A8377">RISO-PRESS · COLLAGE</div>'+
+     '<div style="font:600 13px/1 ui-monospace;letter-spacing:.34em;color:#8A8377">I N K P L O T</div>'+
      '<div style="font:400 46px/1.15 Georgia,\'Songti SC\',serif;color:#1A1815;margin:18px 0 6px;letter-spacing:-.01em">Data, printed.</div>'+
-     '<div style="font:400 15px/1.7 Georgia,\'Songti SC\',serif;color:#6C665C;max-width:560px">四十三种数据可视化标本 · 七种色场分割 · 零素材依赖 · 同种子完全可复现</div>'+
+     '<div style="font:400 15px/1.7 Georgia,\'Songti SC\',serif;color:#6C665C;max-width:560px">43 data-visualization specimens · 7 field skeletons · 9 materials · zero assets · deterministic from a seed</div>'+
    '</div>'+
    '<div style="columns:4;column-gap:20px;padding:40px 56px 56px">'+
    rows.map(r=>'<div style="break-inside:avoid;margin:0 0 20px"><img src="'+r.u+'" style="width:100%;display:block"></div>').join('')+
