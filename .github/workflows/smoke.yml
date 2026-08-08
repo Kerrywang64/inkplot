@@ -1,0 +1,27 @@
+name: smoke
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  collage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i -D playwright && npx playwright install --with-deps chromium
+      - name: quantitative self-check
+        run: |
+          node measure.mjs
+          node diversity.mjs
+      - name: determinism
+        run: |
+          node scripts/showcase.mjs
+          md5sum assets/gallery.png > /tmp/a
+          node scripts/showcase.mjs
+          md5sum assets/gallery.png > /tmp/b
+          diff <(cut -d' ' -f1 /tmp/a) <(cut -d' ' -f1 /tmp/b) && echo 'deterministic'
+        shell: bash
