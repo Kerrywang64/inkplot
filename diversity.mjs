@@ -1,6 +1,7 @@
-/* 多样性自检：把每张降到 24×24 去均值，算两两 L2 距离。
-   墨覆盖是标量，可以单独优化到达标而画面全长一个样 —— 必须同时盯这个数。
-   用法: node diversity.mjs */
+/* Diversity self-check: shrink each plate to 24x24, subtract the mean, take pairwise L2 distance.
+   Ink coverage is a single number, so it can be optimised on its own while every plate ends up
+   looking the same. Watch this number alongside it.
+   Usage: node diversity.mjs */
 import { chromium } from 'playwright';
 import fs from 'fs';
 const js = fs.readFileSync('scripts/collage.js', 'utf8');
@@ -17,7 +18,7 @@ const out = await p.evaluate(seeds => {
     g.drawImage(cv, 0, 0, N, N);
     const d = g.getImageData(0, 0, N, N).data, v = [];
     for (let i = 0; i < d.length; i += 4) v.push((0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2]) / 255);
-    const m = v.reduce((a, b) => a + b, 0) / v.length;   /* 去掉底色亮度，只比结构 */
+    const m = v.reduce((a, b) => a + b, 0) / v.length;   /* strip ground brightness, compare structure only */
     return v.map(x => x - m);
   }
   function pair(S) {
@@ -36,7 +37,7 @@ const out = await p.evaluate(seeds => {
     for (let i = 0; i < 12; i++) S.push({ v: sig(COLLAGE.render(i, 1.4)), n: COLLAGE.meta(i).en || COLLAGE.meta(i).viz });
     res.sheets.push({ seed: sd, ...pair(S) });
   }
-  /* 同一标本的重复实例 —— 「每张都不一样」真正的指标 */
+  /* Repeated instances of the same chart -- the real test of "every plate is different" */
   for (const target of ['gauge', 'pie', 'tree', 'network']) {
     COLLAGE.init({ count: 220, seed: seeds[0], scale: 1 });
     const S = [];
@@ -48,8 +49,8 @@ const out = await p.evaluate(seeds => {
 }, [20260808, 20260815, 20260822, 20260829]);
 
 await b.close();
-console.log('一屏之内（12 张，不同标本）：');
-for (const s of out.sheets) console.log(`  seed ${s.seed}   平均 ${s.mean}   最近 ${s.min}   ${s.closest}`);
-console.log('\n同一标本的重复实例：');
-for (const k in out.same) console.log(`  ${k.padEnd(9)} 平均 ${out.same[k].mean}   最近 ${out.same[k].min}`);
-console.log('\n判据：同标本重复实例的平均距离，应当不低于一屏之内不同标本的平均距离。');
+console.log('Within one sheet (12 plates, different charts):');
+for (const s of out.sheets) console.log(`  seed ${s.seed}   mean ${s.mean}   closest ${s.min}   ${s.closest}`);
+console.log('\nRepeated instances of the same chart:');
+for (const k in out.same) console.log(`  ${k.padEnd(9)} mean ${out.same[k].mean}   closest ${out.same[k].min}`);
+console.log('\nPass condition: mean distance between repeats of one chart should be no lower than\nthe mean distance between different charts on a sheet.');

@@ -1,7 +1,7 @@
 {
   "name": "riso-press",
   "version": "1.1.0",
-  "description": "程序化生成版画/riso 孔版质感的拼贴艺术图，并装配成编辑风格的画廊页",
+  "description": "Generates printmaking / riso-style collage artwork procedurally and assembles it into an editorial gallery page",
   "license": "MIT",
   "entry": "SKILL.md",
   "requires": { "python": ">=3.8", "pip": ["pillow", "numpy"] }

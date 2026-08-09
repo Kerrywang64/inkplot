@@ -103,7 +103,7 @@ outline they already know.
 | `COLLAGE.init({ count, seed, scale, texture, kit })` | Works out every plate up front. Returns itself |
 | `COLLAGE.attach(el, i)` | Draws plate `i` into an `<img>` or a container |
 | `COLLAGE.render(i, scale)` | Returns a `<canvas>` |
-| `COLLAGE.meta(i)` | `{ skeleton, viz, zh, en, screened, kit, kitEn }` — for captions |
+| `COLLAGE.meta(i)` | `{ skeleton, viz, name, screened, kit, kitName }` — for captions |
 | `COLLAGE.materials([{ img }])` | Swaps the charts for your own cut-out images |
 | `COLLAGE.kits()` | The material names |
 
@@ -215,7 +215,7 @@ into looking like a shiny 3D reflection, which is a different medium.
 ```js
 COLLAGE.init({ texture: 3 });      // 0 off · 1 light · 2 mid · 3 heavy (default)
 COLLAGE.init({ kit: 'brushed' });  // lock every plate to one material, for review
-COLLAGE.meta(i).kitEn              // which material this plate used
+COLLAGE.meta(i).kitName            // which material this plate used
 ```
 
 Level 0 is not a broken mode. Flat is correct for interface elements, favicons, and

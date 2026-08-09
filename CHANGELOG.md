@@ -1,29 +1,29 @@
 # Changelog
 
-本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+This project follows [Semantic Versioning](https://semver.org/).
 
 ## [1.1.0]
 
-### 新增
-- **三个可调旋钮** `--density` / `--contrast` / `--texture`（1–10，默认 5），分别控制副结构出现概率、底与主色明度差下限、套印错位与颗粒强度
-- 联系样张 `--contact` 现在作为推荐的验收步骤写入文档
-- `skill.sh` 一行安装脚本（含依赖检查，不代装任何东西）
-- `assets/` 展示图；README 重写，含图案表、旋钮对照、FAQ
-- GitHub Actions 冒烟测试：三种旋钮组合各跑一次并校验产物
-- `examples/` 示例配方
+### Added
+- **Three dials** — `--density` / `--contrast` / `--texture` (1–10, default 5). They control, in order: how often a secondary structure appears, the minimum brightness gap between ground and primary colour, and the strength of misregistration and grain.
+- The contact sheet `--contact` is now documented as the recommended review step.
+- `skill.sh`, a one-line install script. It checks dependencies and installs nothing on your behalf.
+- Showcase images under `assets/`; README rewritten with a pattern table, a dial comparison, and an FAQ.
+- GitHub Actions smoke test: three dial combinations, each rendered once and its output verified.
+- `examples/` with ready-to-run recipes.
 
-### 变更
-- `art.json` 每项新增 `dials` 字段，记录生成时的旋钮值，便于复现
+### Changed
+- Every entry in `art.json` gains a `dials` field recording the dial values used, so a plate can be reproduced.
 
 ## [1.0.0]
 
-首个版本。
+First release.
 
-### 新增
-- 10 种图案结构：网点 / 排线 / 涟漪 / 散点 / 波纹 / 网格 / 竖条 / 块面 / 线迹 / 地平
-- 18 色板，分暖冷两轴，每色带中英文名
-- 3 种遮罩：撕纸 / 色带 / 圆盘，将副结构面积锁在约 40% 内
-- riso 后处理：套印错位 + 纸张颗粒 + 油墨不均 + 柔化
-- 标题由「主色 · 主结构」自动推导，中英双语
-- `gallery.py` 画廊页构建器：三种排布 + 灯箱 + 结构过滤，自包含单文件
-- `references/palette.md`、`references/patterns.md` 完整参数文档
+### Added
+- 10 pattern structures: halftone · hatch · ripple · scatter · wave · grid · stripe · block · trace · horizon
+- An 18-colour palette split into a warm and a cool axis, every colour named.
+- 3 masks — torn paper, colour band, disc — which hold the secondary structure to roughly 40% of the frame.
+- Riso post-processing: misregistration + paper grain + uneven ink + softening.
+- Titles derived automatically from "primary colour · primary structure".
+- `gallery.py`, a gallery page builder: three layouts, a lightbox, and structure filtering, in one self-contained file.
+- Full parameter documentation in `references/palette.md` and `references/patterns.md`.

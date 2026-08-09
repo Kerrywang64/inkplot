@@ -1,7 +1,8 @@
-/* 笔宽与墨覆盖的量化自检。
-   笔宽用「面积/边缘比」估计：一条长 l 宽 w 的笔画，面积 = w·l，边缘像素 ≈ 2l
-   => w ≈ 2×面积 ÷ 边缘数。抗抗锯齿、抗压缩噪点，比游程众数可靠得多。
-   用法: node measure.mjs */
+/* Quantitative self-check: line weight and ink coverage.
+   Line weight is estimated from area divided by edge length: a stroke l long and w wide covers
+   w*l pixels and has roughly 2l edge pixels, so w = 2 * area / edge. Robust against anti-aliasing
+   and compression noise, unlike run-length mode.
+   Usage: node measure.mjs */
 import { chromium } from 'playwright';
 import fs from 'fs';
 const js = fs.readFileSync('scripts/collage.js', 'utf8');
@@ -15,7 +16,8 @@ const res = await p.evaluate(seeds => {
     const W = cv.width, H = cv.height;
     const d = cv.getContext('2d').getImageData(0, 0, W, H).data;
     const L = i => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-    /* 背景取众数色 —— 出血构图会让边缘落在前景上，采样点不可靠 */
+    /* Take the modal colour as background -- bleed compositions put the frame edge on the
+       foreground, so a fixed sample point is unreliable */
     const h = {};
     for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 4) + ',' + (d[i+1] >> 4) + ',' + (d[i+2] >> 4); h[k] = (h[k] || 0) + 1; }
     const bk = Object.entries(h).sort((a, b) => b[1] - a[1])[0][0].split(',').map(n => n * 16 + 8);
@@ -41,12 +43,12 @@ const res = await p.evaluate(seeds => {
 
 await b.close();
 const q = (A, t) => A[Math.floor(A.length * t)];
-/* 只统计线稿型的图：深色场占主导的那些，"墨"会把整块色场算进去，
-   和参考基线不是同一类对象，剔除。 */
+/* Count line-art plates only. On plates dominated by a dark field, "ink" would include the
+   whole colour field, which is not the same kind of object as the reference baseline. Drop them. */
 const line = res.filter(r => r.inkPct < 20);
 const sw = line.map(r => r.oneOver).sort((a, b) => a - b);
 const ik = line.map(r => r.inkPct).sort((a, b) => a - b);
-console.log(`n=${line.length}/${res.length}（剔除深色场主导的 ${res.length - line.length} 张）`);
-console.log(`  笔宽 1/N   q25=${q(sw,.25)}  中位=${q(sw,.5)}  q75=${q(sw,.75)}`);
-console.log(`  墨覆盖 %   q25=${q(ik,.25)}  中位=${q(ik,.5)}  q75=${q(ik,.75)}`);
-console.log(`\n参考基线（编辑插画实测）：笔宽 80/106/122 · 墨覆盖 1.3/4.3/8.6`);
+console.log(`n=${line.length}/${res.length} (dropped ${res.length - line.length} dark-field-dominated plates)`);
+console.log(`  line weight 1/N   q25=${q(sw,.25)}  median=${q(sw,.5)}  q75=${q(sw,.75)}`);
+console.log(`  ink coverage %    q25=${q(ik,.25)}  median=${q(ik,.5)}  q75=${q(ik,.75)}`);
+console.log(`\nReference baseline (measured on editorial illustrations): line weight 80/106/122 · ink coverage 1.3/4.3/8.6`);

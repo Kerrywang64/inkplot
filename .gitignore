@@ -2,8 +2,8 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# CLI 产物 —— 只忽略仓库根目录的，不要用无前缀通配
-# （曾经写成 sheet*.png，把 assets/sheet.png 也挡了，CI 因此提交失败）
+# CLI output — ignore only at the repo root; never use an unprefixed glob
+# (this was once written as sheet*.png, which also blocked assets/sheet.png and broke the CI commit)
 /art.json
 /*.json.tmp
 /sheet.png
@@ -14,4 +14,4 @@ __pycache__/
 /tokens.css
 /test.html
 
-# assets/ 下的展示图必须提交，由 scripts/make_assets.py 生成
+# Showcase images under assets/ must be committed; they are produced by scripts/make_assets.py
