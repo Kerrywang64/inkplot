@@ -1,62 +1,62 @@
-# 色板与配色规则
+# Palette and colour rules
 
-## 基底
+## Base
 
-| 名 | Hex | 用途 |
+| Name | Hex | Used for |
 |---|---|---|
-| 纸 Paper | `#F3EEE5` | 底色首选，出现率约 50% |
-| 墨 Ink | `#1A1815` | 副结构强调，出现率约 40%（仅在副层） |
+| Paper | `#F3EEE5` | First choice of ground colour, appears on roughly 50% of plates |
+| Ink | `#1A1815` | Emphasis on the secondary structure, roughly 40% (secondary layer only) |
 
-页面用的更浅一档：`#F1ECE3`。文字 `#1A1815` / `#605B52` / `#948D80`。
+For page backgrounds use one step lighter: `#F1ECE3`. Text: `#1A1815` / `#605B52` / `#948D80`.
 
-## 18 色
+## The 18 colours
 
-### 暖轴
-| key | Hex | 中文 | English |
-|---|---|---|---|
-| clay | `#C66042` | 陶土 | Clay |
-| rust | `#A33F2D` | 铁锈 | Rust |
-| coral | `#D87E62` | 珊瑚 | Coral |
-| brick | `#B2543C` | 砖红 | Brick |
-| ochre | `#CE9E4E` | 赭石 | Ochre |
-| sand | `#DEC8A4` | 沙 | Sand |
-| wine | `#723244` | 酒红 | Wine |
+### Warm axis
+| key | Hex | Name |
+|---|---|---|
+| clay | `#C66042` | Clay |
+| rust | `#A33F2D` | Rust |
+| coral | `#D87E62` | Coral |
+| brick | `#B2543C` | Brick |
+| ochre | `#CE9E4E` | Ochre |
+| sand | `#DEC8A4` | Sand |
+| wine | `#723244` | Wine |
 
-### 冷轴
-| key | Hex | 中文 | English |
-|---|---|---|---|
-| sage | `#84987E` | 鼠尾草 | Sage |
-| olive | `#687648` | 橄榄 | Olive |
-| forest | `#365242` | 松林 | Forest |
-| moss | `#96A876` | 苔绿 | Moss |
-| teal | `#548886` | 青碧 | Teal |
-| slate | `#667C96` | 石板 | Slate |
-| denim | `#465E84` | 靛蓝 | Denim |
-| sky | `#A0BCCE` | 天青 | Sky |
-| navy | `#2A3A58` | 藏青 | Navy |
-| plum | `#826C94` | 梅紫 | Plum |
-| lilac | `#AA9EC0` | 丁香 | Lilac |
+### Cool axis
+| key | Hex | Name |
+|---|---|---|
+| sage | `#84987E` | Sage |
+| olive | `#687648` | Olive |
+| forest | `#365242` | Forest |
+| moss | `#96A876` | Moss |
+| teal | `#548886` | Teal |
+| slate | `#667C96` | Slate |
+| denim | `#465E84` | Denim |
+| sky | `#A0BCCE` | Sky |
+| navy | `#2A3A58` | Navy |
+| plum | `#826C94` | Plum |
+| lilac | `#AA9EC0` | Lilac |
 
-## 配色硬规则
+## Hard colour rules
 
-1. **底色与主色明度差 ≥ 110**（RGB 三通道和之差）。低于这个值，图案会糊进背景，riso 的颗粒会把边缘吃掉。代码里已自动过滤。
+1. **Ground and primary colour must differ by at least 110 in brightness** (the difference of the summed RGB channels). Below that the pattern smears into the background and riso grain eats the edges. The code filters this automatically.
 
-2. **一幅最多三色**：底 + 主 + 副。第四色开始画面失控。
+2. **Three colours per plate, maximum**: ground + primary + secondary. A fourth colour is where the image stops holding together.
 
-3. **墨黑只做副层**。满幅黑底会破坏纸感，让整组图里那一张显得像异类。
+3. **Ink black is a secondary layer only.** A full black ground destroys the paper feel and makes that one plate look like an outsider in the set.
 
-4. **暖冷不混大面积**。`--palette warm` 或 `--palette cool` 出的组，视觉一致性明显高于 `all`。做系列时优先锁定一侧。
+4. **Do not mix warm and cool at large areas.** A set produced with `--palette warm` or `--palette cool` is visibly more coherent than one produced with `all`. When building a series, lock to one side.
 
-5. **饱和度已经压过**。所有色值都在 sRGB 中低饱和区间，不要往上加——高饱和会立刻脱离版画语境，变成矢量插画。
+5. **Saturation is already turned down.** Every value sits in the low-to-mid sRGB saturation range. Do not push it up — high saturation immediately leaves the printmaking register and turns the output into vector illustration.
 
-## 扩展色板
+## Extending the palette
 
-在 `generate.py` 的 `PAL` 字典加一行：
+Add a line to the `PAL` dictionary in `generate.py`:
 
 ```python
-"key": ((r, g, b), "中文名", "English", "warm"),  # 或 "cool"
+"key": ((r, g, b), "Display Name", "warm"),  # or "cool"
 ```
 
-命名系统（标题 = 色名 · 结构名）会自动接上，画廊的过滤条也会自动出现新项。
+The naming system (title = colour name · structure name) picks it up automatically, and the new entry appears in the gallery filter bar on its own.
 
-选新色的检查：转成灰度后，明度应落在 25%–75% 区间。太亮的色在纸底上看不见，太暗的接近墨黑就失去意义。
+Check for a new colour: convert it to greyscale, and the brightness should land between 25% and 75%. Anything brighter disappears on the paper ground; anything darker approaches ink black and loses its point.

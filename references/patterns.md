@@ -1,64 +1,64 @@
-# 图案结构说明
+# Pattern structures
 
-10 种结构，每种一个函数，签名 `fn(draw, color, rng)`，在 900×900 画布上作画。
+Ten structures, one function each, signature `fn(draw, color, rng)`, drawing onto a 900×900 canvas.
 
-## 目录
+## Index
 
-| key | 中文 | English | 视觉重量 | 适合做 |
-|---|---|---|---|---|
-| `halftone` | 网点 | Halftone | 中 | 主结构。渐变方向随机，是最"像印刷"的一种 |
-| `hatch` | 排线 | Hatch | 中 | 主或副。四个角度随机，密度差别大 |
-| `rings` | 涟漪 | Ripple | 轻 | 主结构。圆心可偏出画外，做局部弧线 |
-| `scatter` | 散点 | Scatter | 轻 | 副结构为主。满幅时容易乱 |
-| `waves` | 波纹 | Wave | 中 | 主结构。振幅频率随机，有机感最强 |
-| `grid` | 网格 | Grid | 中 | 主结构。填充率 14–30%，超过就变色块 |
-| `bars` | 竖条 | Stripe | 重 | 主结构。不等宽，最有版式感 |
-| `block` | 块面 | Block | 重 | 主结构。五种几何母题，画面最简 |
-| `trace` | 线迹 | Trace | 轻 | 副结构最佳。满幅时太空 |
-| `horizon` | 地平 | Horizon | 重 | 主结构。风景暗示最强的一种 |
+| key | Name | Visual weight | Good for |
+|---|---|---|---|
+| `halftone` | Halftone | medium | Primary. The gradient direction is random; this is the one that reads most like print |
+| `hatch` | Hatch | medium | Primary or secondary. Four random angles, wide range of densities |
+| `rings` | Ripple | light | Primary. The centre can sit outside the frame, giving partial arcs |
+| `scatter` | Scatter | light | Mostly secondary. Goes messy when it fills the frame |
+| `waves` | Wave | medium | Primary. Random amplitude and frequency; the most organic of the set |
+| `grid` | Grid | medium | Primary. Fill rate 14–30%; above that it turns into a solid block |
+| `bars` | Stripe | heavy | Primary. Unequal widths, the strongest typographic feel |
+| `block` | Block | heavy | Primary. Five geometric motifs, the simplest image |
+| `trace` | Trace | light | Best as secondary. Too empty when it fills the frame |
+| `horizon` | Horizon | heavy | Primary. The strongest suggestion of landscape |
 
-## 搭配经验
+## Pairing, from experience
 
-**重 + 轻** 最稳：`block` 配 `trace`、`bars` 配 `scatter`、`horizon` 配 `rings`。
+**Heavy + light** is the safe combination: `block` with `trace`, `bars` with `scatter`, `horizon` with `rings`.
 
-**重 + 重** 会打架：`bars` 配 `block`、`horizon` 配 `grid` —— 两个都想当主角，遮罩也救不回来。
+**Heavy + heavy** fights: `bars` with `block`, `horizon` with `grid` — both want to be the subject, and no mask rescues it.
 
-**同类不叠**：`halftone` 配 `grid` 都是规则网格，叠出来是摩尔纹不是构成。
+**Do not stack the same family**: `halftone` with `grid` are both regular grids, and stacking them produces moiré rather than composition.
 
-代码里副结构是随机选的（排除主结构），如果要更严格的搭配控制，在 `compose()` 里把 `sk` 的选择改成查表。
+In the code the secondary structure is picked at random, excluding the primary. For stricter control over pairings, replace the choice of `sk` inside `compose()` with a lookup table.
 
-## 遮罩
+## Masks
 
-副结构必须过遮罩，三种：
+The secondary structure must pass through a mask. There are three:
 
-- `torn_mask` 撕纸——四种斜切母题 + 边缘抖动 ±13px + 1.1px 模糊。最常用，最像手撕纸片。
-- `band_mask` 色带——横或竖的一条，宽度 16–40% 画幅。做分层感。
-- `disc_mask` 圆盘——半径 20–38% 画幅。做"开窗"效果。
+- `torn_mask` — torn paper. Four diagonal-cut motifs, edge jitter of ±13px, 1.1px blur. The most used, and the closest to a hand-torn scrap.
+- `band_mask` — colour band. One horizontal or vertical band, 16–40% of the frame wide. Creates layering.
+- `disc_mask` — disc. Radius 20–38% of the frame. Creates a "window" effect.
 
-三种都把副结构面积限制在约 40% 以内。这是"不杂"的关键，改动时保守一点。
+All three hold the secondary structure to roughly 40% of the frame. This is what keeps the image from going cluttered; be conservative when changing it.
 
-## 后处理
+## Post-processing
 
-`riso()` 三步，顺序不能换：
+`riso()` has three steps and the order cannot change:
 
-1. **套印错位**：红通道整体位移 2–3px，蓝通道反向位移一半。模拟多版套印不对位。这是"版画感"的主要来源，去掉后立刻变成矢量图。
-2. **纸张颗粒**：高斯噪声 σ=10，加在亮度上（三通道同量），不是彩噪。
-3. **油墨不均**：一层正弦 × 余弦的乘性场，幅度 13%，模拟辊压不匀。
+1. **Misregistration.** The red channel shifts 2–3px overall, the blue channel shifts half that in the opposite direction. It simulates plates that did not line up. This is the main source of the printmaking feel — remove it and the output becomes a vector image immediately.
+2. **Paper grain.** Gaussian noise σ=10, added to luminance (the same amount on all three channels), not colour noise.
+3. **Uneven ink.** A multiplicative field of sine × cosine at 13% amplitude, simulating uneven roller pressure.
 
-最后 0.7px 高斯模糊，去掉数字硬边。**这一步不要省** —— 锐利边缘和颗粒同时存在会显得很假。
+Finally a 0.7px Gaussian blur removes the hard digital edges. **Do not skip this step** — sharp edges and grain existing at the same time look fake.
 
-## 加新结构
+## Adding a structure
 
 ```python
 def mypattern(d, c, R):
     # d: ImageDraw, c: RGB tuple, R: random.Random
-    # 在 0..CANVAS 范围内作画
+    # draw within 0..CANVAS
     ...
 
-PATTERNS["mypattern"] = (mypattern, "中文名", "English")
+PATTERNS["mypattern"] = (mypattern, "Display Name")
 ```
 
-自检两条：
+Two checks:
 
-1. 用纸色底跑一次，用深色底跑一次，两种都要成立
-2. 缩到 240px 看联系样张 —— 缩小后仍能辨识的才算合格结构。细节全在 4px 以下的图案，在画廊里就是一片灰
+1. Run it once on a paper ground and once on a dark ground. Both have to work.
+2. Shrink to 240px and look at the contact sheet. A structure only passes if it is still recognisable small. A pattern whose detail all sits below 4px is a grey smear in the gallery.

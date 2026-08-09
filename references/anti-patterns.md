@@ -1,165 +1,165 @@
-# 反模式
+# Anti-patterns
 
-每条格式统一：**症状 → 为什么错 → 改法**。
+Every entry has the same shape: **symptom → why it fails → fix**.
 
-Agent 读完这份应该知道**不该做什么**。禁止清单比推荐清单更能改变输出——推荐是可选的，禁止是硬的。
-
----
-
-## 一 · 这套风格专属禁令
-
-### ✗ 用陶土 `#C66042` 做正文链接或按钮底
-
-纸底上只有 3.53:1，白字在它上面 4.08:1，两个都不到 4.5:1。
-**改法**：正文强调和按钮底一律用铁锈 `#A33F2D`（5.50 / 6.35）。陶土只用在图版、大标题填色、纯装饰图标。
-
-### ✗ 纸感底色 + 深色模式切换
-
-这套风格的底层逻辑是"模拟纸"。纸没有深色模式。硬做出来的深色版会失去全部质感，只剩一个普通的深色站。
-**改法**：不做深色模式。真要照顾夜间阅读，把底色降到 `#EAE3D6` 并调低强调色饱和度，仍是暖色系。
-
-### ✗ 用阴影堆层级
-
-`box-shadow` 是拟物的语汇，跟版画/印刷的平面逻辑冲突。一堆浮起的卡片会让页面看起来像 2015 年的 Material Design。
-**改法**：用边框（`--rule`）、留白、底色差（`paper` / `paper-2`）建立层级。只有真正需要"浮在上面"的东西（灯箱、下拉、toast）才给阴影。
-
-### ✗ 胶囊圆角
-
-`border-radius: 999px` 属于现代 SaaS 语汇。纸感编辑风用直角或 2–4px。
-**改法**：按钮、输入、卡片一律 0 或 2px。唯一例外是头像和状态点。
-
-### ✗ 700 以上的字重
-
-粗体在暖纸底上显脏，且破坏低对比的整体气质。
-**改法**：要强调就换字号（跳两级）或换字族（正文无衬线 → 强调用衬线斜体）。字重控制在 200–500。
-
-### ✗ 三个以上图案层叠在一张图版上
-
-出图会变成"杂"——所有图看起来像同一锅乱炖，彼此失去辨识度。
-**改法**：一幅一个主结构 + 最多一个经遮罩的副结构。用 `--density 2` 强制极简。
-
-### ✗ 随机词库当图版标题
-
-「潮线」「薄暮」配一张网格图，名字和图毫无关系，两边都失去意义。
-**改法**：标题从图里推导 —— `主色 · 主结构`（赭石 · 涟漪 / Ochre Ripple）。
+An agent that reads this should come away knowing **what not to do**. A list of prohibitions changes output more than a list of recommendations does — recommendations are optional, prohibitions are not.
 
 ---
 
-## 二 · 通用禁令
+## 1 · Rules specific to this style
+
+### ✗ Using clay `#C66042` for body links or button fills
+
+It measures only 3.53:1 on the paper ground, and white text on it is 4.08:1. Both are under 4.5:1.
+**Fix**: use rust `#A33F2D` for body emphasis and button fills (5.50 / 6.35). Clay is for plates, large display headings, and purely decorative icons.
+
+### ✗ A paper ground with a dark-mode toggle
+
+The whole logic of this style is that it imitates paper. Paper has no dark mode. A forced dark variant loses every bit of the material quality and leaves an ordinary dark site behind.
+**Fix**: no dark mode. If night reading really has to be supported, drop the ground to `#EAE3D6` and reduce accent saturation — still in the warm family.
+
+### ✗ Stacking shadows to build hierarchy
+
+`box-shadow` is skeuomorphic vocabulary and conflicts with the flat logic of print. A pile of floating cards makes a page look like Material Design circa 2015.
+**Fix**: build hierarchy with rules (`--rule`), whitespace, and steps in background colour (`paper` / `paper-2`). Only things that genuinely float — a lightbox, a dropdown, a toast — get a shadow.
+
+### ✗ Pill radii
+
+`border-radius: 999px` belongs to modern SaaS vocabulary. Paper-editorial uses square corners, or 2–4px.
+**Fix**: buttons, inputs and cards get 0 or 2px. The only exceptions are avatars and status dots.
+
+### ✗ Font weights above 700
+
+Bold looks dirty on a warm paper ground and breaks the low-contrast character of the whole thing.
+**Fix**: to emphasise, change size (jump two steps) or change family (sans body → serif italic for emphasis). Keep weight between 200 and 500.
+
+### ✗ Three or more pattern layers on one plate
+
+The output goes cluttered — every image starts to look like the same stew, and they stop being distinguishable from each other.
+**Fix**: one primary structure per plate, plus at most one masked secondary. Use `--density 2` to force minimalism.
+
+### ✗ Titles pulled from a random word list
+
+"Tidal Line" or "Dusk" attached to a grid pattern means the name and the image have nothing to do with each other, and both lose their meaning.
+**Fix**: derive the title from the image — `primary colour · primary structure` (Ochre Ripple).
+
+---
+
+## 2 · General prohibitions
 
 ### ✗ `outline: none`
 
-删掉聚焦轮廓等于把所有键盘用户和读屏用户赶出门。这是可访问性里最常见也最严重的一条。
-**改法**：不删。要改样式就换成 `outline: 2px solid var(--accent); outline-offset: 2px`。
+Deleting the focus ring evicts every keyboard and screen-reader user. This is the most common and most serious accessibility failure there is.
+**Fix**: do not delete it. To restyle, use `outline: 2px solid var(--accent); outline-offset: 2px`.
 
-### ✗ placeholder 当标签
+### ✗ Placeholder as label
 
-用户一开始输入，标签就消失了，填到一半忘了这栏是什么。
-**改法**：标签放输入框上方，常驻。placeholder 只放格式示例（`2024-01-31`）。
+The label disappears the moment the user starts typing, and halfway through the form they no longer know what the field was.
+**Fix**: put the label above the input, permanently. Placeholders hold format examples only (`2024-01-31`).
 
-### ✗ 正文小于 16px
+### ✗ Body text under 16px
 
-低于 16px 时 iOS Safari 会在聚焦输入框时自动放大整页，体验断裂。而且小字本身就难读。
-**改法**：正文 16px 起，输入框字号必须 ≥ 16px。
+Below 16px, iOS Safari zooms the whole page when an input receives focus, which breaks the experience. Small text is also simply harder to read.
+**Fix**: body text starts at 16px, and input font size must be 16px or larger.
 
-### ✗ 纵轴不从零开始的柱状图
+### ✗ Bar charts whose y-axis does not start at zero
 
-截断纵轴会把 3% 的差距画成 3 倍，数据是真的但结论是假的。
-**改法**：柱状图纵轴必须从 0。折线图可以截断，但要在轴上标出来。
+Truncating the axis draws a 3% difference as a 3× one. The data is true and the conclusion is false.
+**Fix**: bar chart y-axes must start at 0. Line charts may be truncated, but say so on the axis.
 
-### ✗ 用颜色作为唯一区分手段
+### ✗ Colour as the only means of distinction
 
-约 8% 的男性有色觉障碍。只靠颜色区分的图例、状态、必填项，对他们等于没有。
-**改法**：颜色 + 形状/位置/文字标注，至少两条线索。
+Roughly 8% of men have a colour vision deficiency. A legend, status, or required-field marker that relies on colour alone does not exist for them.
+**Fix**: colour plus shape, position, or a text label — at least two cues.
 
-### ✗ 无限滚动
+### ✗ Infinite scroll
 
-杀死页脚，也杀死"读完了"的感觉。用户永远到不了底部，也就永远找不到联系方式和版权信息。
-**改法**：分页，或"加载更多"按钮 + 常驻页脚。
+It kills the footer, and it kills the feeling of having finished. The user never reaches the bottom, so they never find the contact details or the copyright.
+**Fix**: pagination, or a "load more" button with a permanent footer.
 
-### ✗ 假进度条
+### ✗ Fake progress bars
 
-不知道要多久就别假装知道。进度条走到 90% 卡住五分钟，比转圈更让人愤怒。
-**改法**：不确定时长用不确定态（转圈/骨架屏）。超过 3 秒的骨架屏要换成明确的等待说明。
+If you do not know how long it will take, do not pretend you do. A bar that reaches 90% and sits there for five minutes is more infuriating than a spinner.
+**Fix**: use an indeterminate state (spinner or skeleton) for unknown durations. Past three seconds, replace the skeleton with an explicit explanation of the wait.
 
-### ✗ 「操作无效」「出错了」这类错误提示
+### ✗ Errors that say "invalid operation" or "something went wrong"
 
-没告诉用户哪里错、怎么改，等于没提示。
-**改法**：说清楚**哪个字段** + **什么规则** + **怎么改**。「密码需要至少 8 位，当前 5 位」优于「密码无效」。
+They tell the user neither what is wrong nor how to fix it, which makes them no message at all.
+**Fix**: name **which field**, **which rule**, and **how to fix it**. "Password needs at least 8 characters, currently 5" beats "invalid password".
 
-### ✗ 「确定要删除吗？」
+### ✗ "Are you sure you want to delete?"
 
-确认框把责任推给用户，而且用户会条件反射地点确定。
-**改法**：直接删除 + 提供撤销（toast 里带"撤销"，保留 10 秒）。可逆优于确认。
+A confirmation dialog pushes responsibility onto the user, and users click confirm reflexively.
+**Fix**: delete immediately and offer undo (an "undo" in the toast, held for 10 seconds). Reversible beats confirmed.
 
-### ✗ emoji 当图标
+### ✗ Emoji as icons
 
-跨平台渲染不一致，读屏器会念出奇怪的名字，且破坏视觉一致性。
-**改法**：用 SVG 图标集（Lucide / Heroicons），统一线宽。
+They render inconsistently across platforms, screen readers announce strange names for them, and they break visual consistency.
+**Fix**: use an SVG icon set (Lucide, Heroicons) with a consistent stroke width.
 
-### ✗ 空状态只写「暂无数据」
+### ✗ Empty states that only say "no data"
 
-第一次打开产品看到的就是这句话，这是最好的教学时机被浪费掉了。
-**改法**：空状态 = 一句说明这里将会有什么 + 一个引导操作。
+That sentence is the first thing a user sees when they open the product, and it wastes the best teaching moment there is.
+**Fix**: an empty state is one line explaining what will be here, plus one action that gets them there.
 
-### ✗ 欢迎语、「让我们开始吧」、「太棒了！」
+### ✗ Welcome messages, "let's get started", "great job!"
 
-计算器不需要欢迎语。删掉这句话用户损失什么？没有就删。
-**改法**：直接给功能。文案只在真正需要解释的地方出现。
+A calculator does not need a welcome message. What does the user lose if that sentence is deleted? If nothing, delete it.
+**Fix**: give them the function. Copy appears only where something genuinely needs explaining.
 
-### ✗ 同样外观的元素有不同行为
+### ✗ Elements that look identical but behave differently
 
-用户默认"长得一样的东西行为一样"。一个看起来像按钮的东西不可点，会直接击穿信任。
-**改法**：可点与不可点必须视觉可分。禁用态不要只是变灰，要说明为什么不能点。
+Users assume things that look the same behave the same. Something that looks like a button and cannot be clicked destroys trust outright.
+**Fix**: clickable and non-clickable must be visually distinguishable. A disabled state should not just be grey — say why it cannot be used.
 
-### ✗ 没有日期的技术文章
+### ✗ Technical articles without a date
 
-三年前的教程和昨天的教程长得一模一样，读者无法判断是否过时。
-**改法**：发布日期 + 最后更新日期，都放在正文开头，不是页脚小字。
-
----
-
-## 三 · 按场景
-
-只列几个高频的，不追求覆盖全行业。
-
-### 金融 / 法务
-
-- ✗ AI 紫粉渐变 —— 已经是"不靠谱产品"的视觉信号
-- ✗ 圆润卡通插画
-- ✗ 动画数字滚动展示余额
-- ✓ 靛蓝 `#465E84` 或酒红 `#723244` 做强调，克制的衬线，所有数字 tabular-nums，费率必须有可点的出处
-
-### 医疗 / 健康
-
-- ✗ 纯红色做主色（关联急救与危险）
-- ✗ 拟人化 AI 助手形象
-- ✗ 用进度条/成就徽章激励用药依从性 —— 把治疗游戏化是有伦理问题的
-- ✓ 松林 `#365242`，中性排版，剂量与副作用信息必须比营销文案更显眼
-
-### 儿童 / 教育
-
-- ✗ 直接用这套纸感风格 —— 低对比暖色对儿童辨识度不够
-- ✓ 换高饱和高对比色板，字号整体上调两级，触控目标 ≥ 60px
-
-### 研究 / 出版
-
-- ✓ 这套风格的主场
-- ✗ 但不要为了美观牺牲引文格式的规范性；参考文献区用等宽字，行长可以突破 68ch
+A tutorial from three years ago looks exactly like one from yesterday, and the reader cannot tell whether it is stale.
+**Fix**: publication date and last-updated date, both at the top of the body, not in small print in the footer.
 
 ---
 
-## 四 · 给 Agent 的执行顺序
+## 3 · By domain
 
-拿到需求后按这个顺序做决定，**不要跳步**：
+A few high-frequency cases only; this is not an attempt to cover every industry.
 
-1. **先判断这套风格适不适用** —— 见 `design-system.md` 开头。不适用就直说，换别的方案。
-2. **选骨架** —— 六种里选一种，不要自创。
-3. **选字体配对** —— 四组里选一组。
-4. **定强调色** —— 查对比度表，确认用途合格。**一页一个**。
-5. **套 token** —— 间距、字级、动效时长直接抄，不要自己发明数值。
-6. **配图** —— 需要抽象配图时跑 `scripts/generate.py`，参数按气质选（极简 `--density 2`，做旧 `--texture 9`）。
-7. **过自查表** —— `design-system.md` 第八节，逐条确认。
-8. **过这份反模式** —— 逐条确认没有触犯。
+### Finance / legal
 
-第 7、8 步不能省。写完不检查的产出，和默认输出的差距会在细节上被抹平。
+- ✗ AI purple-pink gradients — already a visual signal for "unserious product"
+- ✗ Rounded cartoon illustration
+- ✗ Animated counting-up of a balance
+- ✓ Denim `#465E84` or wine `#723244` for accent, restrained serifs, `tabular-nums` on every number, and every rate must have a clickable source
+
+### Medical / health
+
+- ✗ Pure red as a primary colour (it reads as emergency and danger)
+- ✗ An anthropomorphised AI assistant character
+- ✗ Progress bars or achievement badges to drive medication adherence — gamifying treatment raises real ethical problems
+- ✓ Forest `#365242`, neutral typography, and dosage and side-effect information must be more prominent than any marketing copy
+
+### Children / education
+
+- ✗ Do not use this paper style directly — low-contrast warm colours are not distinguishable enough for children
+- ✓ Switch to a high-saturation, high-contrast palette, raise every type size two steps, touch targets 60px and up
+
+### Research / publishing
+
+- ✓ This is where the style belongs
+- ✗ But do not sacrifice citation formatting for looks; set the reference section in a monospace face, and line length may exceed 68ch there
+
+---
+
+## 4 · Order of operations for an agent
+
+Work through these in order once you have the brief. **Do not skip steps.**
+
+1. **Decide whether this style applies at all** — see the opening of `design-system.md`. If it does not, say so and propose something else.
+2. **Pick a skeleton** — one of the six. Do not invent one.
+3. **Pick a font pairing** — one of the four.
+4. **Pick an accent colour** — check the contrast table and confirm the intended use passes. **One per page.**
+5. **Apply the tokens** — copy the spacing, type scale and motion durations directly. Do not invent values.
+6. **Artwork** — when abstract artwork is needed, run `scripts/generate.py`, choosing parameters by character (minimal: `--density 2`; aged: `--texture 9`).
+7. **Run the self-check** — section 8 of `design-system.md`, line by line.
+8. **Run this anti-pattern list** — confirm line by line that none are violated.
+
+Steps 7 and 8 cannot be skipped. Output that is never checked ends up indistinguishable from default output, because the difference lives entirely in the details.
