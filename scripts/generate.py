@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-riso-press · 版画拼贴图生成器
+riso-press · printmaking collage generator
 
-设计原则（改自 v1 的教训）：
-  1. 克制 —— 每幅最多 2 个图案层，第二层必须经遮罩，且面积受限。
-  2. 命名可溯 —— 标题直接由「主色 + 主结构」推导，不是随机词库。
-  3. 单一主体 —— 一幅一个主结构，第二层只做点缀不抢戏。
+Design rules (rewritten from what went wrong in v1):
+  1. Restraint — two pattern layers per plate at most, and the second must pass
+     through a mask that limits its area.
+  2. Traceable naming — the title is derived from "primary colour + primary
+     structure", never from a random word list.
+  3. One subject — one primary structure per plate; the second layer accents it
+     and never competes with it.
 
-用法:
+Usage:
   python3 generate.py --count 24 --out art.json
   python3 generate.py --count 12 --size 720 --palette warm --seed 42
   python3 generate.py --count 6 --pattern rings --contact sheet.png
@@ -18,35 +21,35 @@ try:
     import numpy as np
     from PIL import Image, ImageDraw, ImageFilter
 except ImportError:
-    sys.exit("需要 Pillow 与 numpy：pip install pillow numpy")
+    sys.exit("Pillow and numpy are required: pip install pillow numpy")
 
 CANVAS = 900
 PAPER = (243, 238, 229)
 INK = (26, 24, 21)
 
-# ── 色板：每色带中英名，标题从这里取 ──────────────────────────
+# ── Palette: every colour carries a name, and titles are built from it ──────
 PAL = {
-    "clay":   ((198, 96, 66),   "陶土", "Clay",   "warm"),
-    "rust":   ((163, 63, 45),   "铁锈", "Rust",   "warm"),
-    "coral":  ((216, 126, 98),  "珊瑚", "Coral",  "warm"),
-    "brick":  ((178, 84, 60),   "砖红", "Brick",  "warm"),
-    "ochre":  ((206, 158, 78),  "赭石", "Ochre",  "warm"),
-    "sand":   ((222, 200, 164), "沙",   "Sand",   "warm"),
-    "wine":   ((114, 50, 68),   "酒红", "Wine",   "warm"),
-    "sage":   ((130, 152, 126), "鼠尾草", "Sage", "cool"),
-    "olive":  ((104, 118, 72),  "橄榄", "Olive",  "cool"),
-    "forest": ((54, 82, 66),    "松林", "Forest", "cool"),
-    "moss":   ((150, 168, 118), "苔绿", "Moss",   "cool"),
-    "teal":   ((84, 136, 134),  "青碧", "Teal",   "cool"),
-    "slate":  ((102, 124, 150), "石板", "Slate",  "cool"),
-    "denim":  ((70, 94, 132),   "靛蓝", "Denim",  "cool"),
-    "sky":    ((160, 188, 206), "天青", "Sky",    "cool"),
-    "navy":   ((42, 58, 88),    "藏青", "Navy",   "cool"),
-    "plum":   ((130, 108, 148), "梅紫", "Plum",   "cool"),
-    "lilac":  ((170, 158, 192), "丁香", "Lilac",  "cool"),
+    "clay":   ((198, 96, 66),   "Clay",   "warm"),
+    "rust":   ((163, 63, 45),   "Rust",   "warm"),
+    "coral":  ((216, 126, 98),  "Coral",  "warm"),
+    "brick":  ((178, 84, 60),   "Brick",  "warm"),
+    "ochre":  ((206, 158, 78),  "Ochre",  "warm"),
+    "sand":   ((222, 200, 164), "Sand",   "warm"),
+    "wine":   ((114, 50, 68),   "Wine",   "warm"),
+    "sage":   ((130, 152, 126), "Sage",   "cool"),
+    "olive":  ((104, 118, 72),  "Olive",  "cool"),
+    "forest": ((54, 82, 66),    "Forest", "cool"),
+    "moss":   ((150, 168, 118), "Moss",   "cool"),
+    "teal":   ((84, 136, 134),  "Teal",   "cool"),
+    "slate":  ((102, 124, 150), "Slate",  "cool"),
+    "denim":  ((70, 94, 132),   "Denim",  "cool"),
+    "sky":    ((160, 188, 206), "Sky",    "cool"),
+    "navy":   ((42, 58, 88),    "Navy",   "cool"),
+    "plum":   ((130, 108, 148), "Plum",   "cool"),
+    "lilac":  ((170, 158, 192), "Lilac",  "cool"),
 }
 
-# ── 图案：每种带中英名 ────────────────────────────────────────
+# ── Patterns: every structure carries a name ────────────────────────────────
 def halftone(d, c, R):
     step = R.choice([26, 34, 44])
     ang = R.uniform(0, math.pi)
@@ -134,19 +137,19 @@ def horizon(d, c, R):
         d.polygon(pts + [(CANVAS, CANVAS), (0, CANVAS)], fill=c)
 
 PATTERNS = {
-    "halftone": (halftone, "网点", "Halftone"),
-    "hatch":    (hatch,    "排线", "Hatch"),
-    "rings":    (rings,    "涟漪", "Ripple"),
-    "scatter":  (scatter,  "散点", "Scatter"),
-    "waves":    (waves,    "波纹", "Wave"),
-    "grid":     (grid,     "网格", "Grid"),
-    "bars":     (bars,     "竖条", "Stripe"),
-    "block":    (block,    "块面", "Block"),
-    "trace":    (trace,    "线迹", "Trace"),
-    "horizon":  (horizon,  "地平", "Horizon"),
+    "halftone": (halftone, "Halftone"),
+    "hatch":    (hatch,    "Hatch"),
+    "rings":    (rings,    "Ripple"),
+    "scatter":  (scatter,  "Scatter"),
+    "waves":    (waves,    "Wave"),
+    "grid":     (grid,     "Grid"),
+    "bars":     (bars,     "Stripe"),
+    "block":    (block,    "Block"),
+    "trace":    (trace,    "Trace"),
+    "horizon":  (horizon,  "Horizon"),
 }
 
-# ── 遮罩：控制第二层的面积，永远不超过约 45% ─────────────────
+# ── Masks: they cap the area of the second layer, never above roughly 45% ───
 def torn_mask(R):
     m = Image.new("L", (CANVAS, CANVAS), 0); d = ImageDraw.Draw(m)
     base = R.choice([
@@ -186,7 +189,7 @@ MASKS = [torn_mask, band_mask, disc_mask]
 
 
 def riso(im, R, texture=5):
-    """套印错位 + 纸张颗粒 + 油墨不均。texture 1-10 控制强度。"""
+    """Misregistration + paper grain + uneven ink. texture 1-10 sets the strength."""
     t = texture / 5.0
     a = np.array(im).astype(np.int16)
     sh = max(1, round(3 * t))
@@ -200,22 +203,23 @@ def riso(im, R, texture=5):
 
 
 def compose(R, pool, force_pattern=None, dials=None):
-    """一幅 = 底 + 主结构（满幅）+ 可选副结构（遮罩内，面积受限）
+    """One plate = ground + primary structure (full frame) + optional secondary
+    structure (inside a mask, area-limited).
 
-    dials: (density, contrast, texture) 各 1-10
-      density  副结构出现概率与图案密集度
-      contrast 底色与主色的明度差下限
-      texture  套印错位与颗粒强度（在 riso() 里用）
+    dials: (density, contrast, texture), each 1-10
+      density   how often a secondary structure appears, and how dense patterns are
+      contrast  the minimum brightness gap between ground and primary colour
+      texture   misregistration and grain strength (used inside riso())
     """
     D, C, _ = dials or (5, 5, 5)
     pk = force_pattern or R.choice(list(PATTERNS))
-    fn, cn_p, en_p = PATTERNS[pk]
+    fn, name_p = PATTERNS[pk]
 
-    # 主色 = 结构的颜色（标题取它）
+    # Primary colour = the colour of the structure; the title is taken from it
     main_key = R.choice(pool)
-    main_rgb, cn_c, en_c, _ = PAL[main_key]
+    main_rgb, name_c, _ = PAL[main_key]
 
-    # 底色：纸 或 同族色（明度差随 contrast 提高）
+    # Ground: paper, or a colour from the same pool (the gap widens with contrast)
     gap = 60 + C * 14                      # C=1→74, C=5→130, C=10→200
     if R.random() < .5:
         bg = PAPER
@@ -227,25 +231,25 @@ def compose(R, pool, force_pattern=None, dials=None):
     d = ImageDraw.Draw(im)
     fn(d, main_rgb, R)
 
-    # 副结构：概率随 density，必过遮罩，且用第三色或墨黑
+    # Secondary structure: probability follows density, always masked, and drawn
+    # in a third colour or in ink black
     second = None
     if R.random() < D / 12:                # D=1→8%, D=5→42%, D=10→83%
         sk = R.choice([k for k in PATTERNS if k != pk])
-        sfn, cn_s, en_s = PATTERNS[sk]
+        sfn, name_s = PATTERNS[sk]
         sc = INK if R.random() < .4 else PAL[R.choice(pool)][0]
         sub = Image.new("RGB", (CANVAS, CANVAS), bg)
         sfn(ImageDraw.Draw(sub), sc, R)
         im = Image.composite(sub, im, R.choice(MASKS)(R))
-        second = (cn_s, en_s)
+        second = name_s
 
-    title_cn = f"{cn_c} · {cn_p}"
-    title_en = f"{en_c} {en_p}"
+    title = f"{name_c} {name_p}"
     meta = {
         "pattern": pk, "color": main_key,
-        "second": second[1] if second else None,
+        "second": second,
         "inks": 3 if second else 2,
     }
-    return im, title_cn, title_en, meta
+    return im, title, meta
 
 
 def to_uri(im, size, colors):
@@ -255,42 +259,42 @@ def to_uri(im, size, colors):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="riso-press 版画拼贴图生成器")
+    ap = argparse.ArgumentParser(description="riso-press printmaking collage generator")
     ap.add_argument("--count", type=int, default=24)
-    ap.add_argument("--size", type=int, default=560, help="输出边长 px")
-    ap.add_argument("--colors", type=int, default=40, help="量化色数，越低体积越小")
+    ap.add_argument("--size", type=int, default=560, help="output edge length in px")
+    ap.add_argument("--colors", type=int, default=40, help="quantised colour count; lower means a smaller file")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--palette", choices=["all", "warm", "cool"], default="all")
-    ap.add_argument("--pattern", choices=list(PATTERNS), default=None, help="锁定单一结构")
+    ap.add_argument("--pattern", choices=list(PATTERNS), default=None, help="lock to a single structure")
     ap.add_argument("--density",  type=int, default=5, choices=range(1,11), metavar="1-10",
-                    help="副结构出现概率。低=极简，高=层次多")
+                    help="how often a secondary structure appears. low = minimal, high = layered")
     ap.add_argument("--contrast", type=int, default=5, choices=range(1,11), metavar="1-10",
-                    help="底色与主色的明度差下限。低=柔和，高=强烈")
+                    help="minimum brightness gap between ground and primary. low = soft, high = strong")
     ap.add_argument("--texture",  type=int, default=5, choices=range(1,11), metavar="1-10",
-                    help="套印错位与颗粒强度。低=干净，高=年代感")
+                    help="misregistration and grain strength. low = clean, high = aged")
     ap.add_argument("--out", default="art.json")
-    ap.add_argument("--contact", default=None, help="同时输出联系样张 PNG")
+    ap.add_argument("--contact", default=None, help="also write a contact sheet PNG")
     a = ap.parse_args()
 
     R = random.Random(a.seed)
     np.random.seed(a.seed if a.seed is not None else random.randrange(1 << 30))
 
-    pool = [k for k, v in PAL.items() if a.palette == "all" or v[3] == a.palette]
+    pool = [k for k, v in PAL.items() if a.palette == "all" or v[2] == a.palette]
 
     dials = (a.density, a.contrast, a.texture)
     items, ims = [], []
     for i in range(a.count):
-        im, cn, en, meta = compose(R, pool, a.pattern, dials)
+        im, title, meta = compose(R, pool, a.pattern, dials)
         im = riso(im, R, a.texture)
         ims.append(im)
         items.append({"src": to_uri(im, a.size, a.colors),
-                      "cn": cn, "en": en, "no": i + 1,
+                      "title": title, "no": i + 1,
                       "dials": {"density": a.density, "contrast": a.contrast, "texture": a.texture},
                       **meta})
 
     json.dump(items, open(a.out, "w"), ensure_ascii=False)
     kb = sum(len(x["src"]) for x in items) / 1024
-    print(f"✓ {a.count} 幅 → {a.out}   ≈ {kb/1024:.2f} MB")
+    print(f"✓ {a.count} plates → {a.out}   ≈ {kb/1024:.2f} MB")
 
     if a.contact:
         cols = min(6, a.count); cell = 240
@@ -300,7 +304,7 @@ def main():
             sh.paste(im.resize((cell, cell), Image.LANCZOS),
                      (10 + (i % cols) * (cell + 10), 10 + (i // cols) * (cell + 10)))
         sh.save(a.contact)
-        print(f"✓ 联系样张 → {a.contact}")
+        print(f"✓ contact sheet → {a.contact}")
 
 
 if __name__ == "__main__":

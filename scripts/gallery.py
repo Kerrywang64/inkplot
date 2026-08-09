@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-riso-press · 画廊页构建器
-把 generate.py 产出的 art.json 装进一个自包含的 HTML 画廊。
+riso-press · gallery page builder
+Packs the art.json produced by generate.py into a self-contained HTML gallery.
 
-用法:
+Usage:
   python3 gallery.py --art art.json --out gallery.html
-  python3 gallery.py --art art.json --title "Editions No.2" --sub "副标题" --layout quad
+  python3 gallery.py --art art.json --title "Editions No.2" --sub "Subtitle" --layout quad
 """
 import argparse, json, os, sys
 
@@ -13,18 +13,18 @@ TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "
 
 
 def main():
-    ap = argparse.ArgumentParser(description="riso-press 画廊构建器")
+    ap = argparse.ArgumentParser(description="riso-press gallery builder")
     ap.add_argument("--art", default="art.json")
     ap.add_argument("--out", default="gallery.html")
-    ap.add_argument("--title", default="纸的<i>若干</i>种说法")
-    ap.add_argument("--sub", default="全部由算法印制：半调、排线、撕纸遮罩、套印错位与纸张颗粒。无一张图片素材。")
+    ap.add_argument("--title", default="<i>Several</i> ways of saying paper")
+    ap.add_argument("--sub", default="Printed entirely by algorithm: halftone, hatching, torn-paper masks, misregistration and paper grain. Not one image asset.")
     ap.add_argument("--brand", default="Pressroom")
     ap.add_argument("--edition", default="Editions № 01")
     ap.add_argument("--layout", choices=["mosaic", "quad", "solo"], default="mosaic")
     a = ap.parse_args()
 
     if not os.path.exists(TPL):
-        sys.exit(f"找不到模板：{TPL}")
+        sys.exit(f"template not found: {TPL}")
     items = json.load(open(a.art, encoding="utf-8"))
 
     html = open(TPL, encoding="utf-8").read()
@@ -39,7 +39,7 @@ def main():
         html = html.replace(k, v)
 
     open(a.out, "w", encoding="utf-8").write(html)
-    print(f"✓ {len(items)} 幅 → {a.out}   ({len(html)/1024/1024:.2f} MB)")
+    print(f"✓ {len(items)} plates → {a.out}   ({len(html)/1024/1024:.2f} MB)")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-riso-press · 起始页生成器
+riso-press · starter page generator
 
-把 references/design-system.md 里的决策变成可运行的代码。
-不是模板引擎，是把已经做好的判断打包成一个能跑的起点。
+Turns the decisions in references/design-system.md into code you can run.
+This is not a template engine; it packages judgements that have already been
+made into a starting point that works.
 
-用法:
+Usage:
   python3 scripts/scaffold.py --list
   python3 scripts/scaffold.py --skeleton longform --out index.html
   python3 scripts/scaffold.py --tokens-only --accent forest --out tokens.css
@@ -14,51 +15,51 @@ import argparse, sys
 
 PAIRINGS = {
     "editorial": dict(
-        label="编辑默认",
+        label="Editorial default",
         google="Newsreader:ital,opsz,wght@0,6..72,200;0,6..72,300;0,6..72,400;1,6..72,300&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@300;400",
         display='Newsreader, "Noto Serif SC", Georgia, serif',
         ui='Inter, "Noto Serif SC", -apple-system, "PingFang SC", sans-serif',
-        note="warm、可读、不摆架子。长文与作品集的起点。"),
+        note="Warm, readable, unpretentious. The starting point for longform and portfolios."),
     "publishing": dict(
-        label="高对比出版",
+        label="High-contrast publishing",
         google="Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500&family=Noto+Serif+SC:wght@300;400",
         display='"Playfair Display", "Noto Serif SC", Georgia, serif',
         ui='Inter, "Noto Serif SC", -apple-system, "PingFang SC", sans-serif',
-        note="粗细反差大，48px 以上才好看。封面、时尚、美妆。"),
+        note="Extreme thick-thin contrast; only looks right above 48px. Covers, fashion, beauty."),
     "docs": dict(
-        label="学术与文档",
+        label="Academic and documentation",
         google="Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,400&family=IBM+Plex+Sans:wght@400;500&family=Noto+Serif+SC:wght@300;400",
         display='"Source Serif 4", "Noto Serif SC", Georgia, serif',
         ui='"IBM Plex Sans", "Noto Serif SC", -apple-system, sans-serif',
-        note="中性、可信、耐读。研究报告与技术文档。"),
+        note="Neutral, credible, durable to read. Research reports and technical docs."),
     "modern": dict(
-        label="现代无衬线",
+        label="Modern sans",
         google="Instrument+Sans:wght@400;500;600&family=Inter:wght@400;500&family=Noto+Sans+SC:wght@300;400;500",
         display='"Instrument Sans", "Noto Sans SC", -apple-system, sans-serif',
         ui='Inter, "Noto Sans SC", -apple-system, "PingFang SC", sans-serif',
-        note="保留纸感底但换掉衬线，气质更当代。工具类官网。"),
+        note="Keeps the paper ground but drops the serif; reads more contemporary. Marketing sites for tools."),
 }
 
-# 对比度已实测（WCAG 2.1）：纸底做文字 / 白字做按钮底
+# Contrast is measured (WCAG 2.1): as text on paper / as a button fill with white text
 ACCENTS = {
-    "rust":   ("#A33F2D", 5.50, 6.35, "默认。两种用法都合格"),
-    "forest": ("#365242", 7.44, 8.60, "冷静、机构感。文档与研究"),
-    "denim":  ("#465E84", 5.69, 6.57, "金融、法务"),
-    "wine":   ("#723244", 8.06, 9.31, "对比最强。正式出版"),
-    "olive":  ("#687648", 4.25, 4.91, "只能做按钮底，不能做正文链接"),
+    "rust":   ("#A33F2D", 5.50, 6.35, "Default. Passes for both uses"),
+    "forest": ("#365242", 7.44, 8.60, "Calm, institutional. Docs and research"),
+    "denim":  ("#465E84", 5.69, 6.57, "Finance and legal"),
+    "wine":   ("#723244", 8.06, 9.31, "Highest contrast. Formal publishing"),
+    "olive":  ("#687648", 4.25, 4.91, "Button fill only, never a body link"),
 }
 
-TOKENS = """/* riso-press · 纸感编辑风 token
-   数值来自 references/design-system.md，不要自己发明新值 */
+TOKENS = """/* riso-press · paper-editorial tokens
+   Values come from references/design-system.md. Do not invent new ones. */
 :root{
   --paper:#F3EEE5; --paper-2:#EBE4D7; --paper-3:#E3DBCB;
-  --ink:#1A1815;    /* 15.33:1 正文标题 */
-  --ink-2:#4A463E;  /*  8.12:1 次要文字 */
-  --ink-3:#6E6A61;  /*  4.66:1 元信息   */
-  --ink-4:#8A8478;  /*  3.21:1 仅装饰，禁止承载信息 */
+  --ink:#1A1815;    /* 15.33:1 body and headings */
+  --ink-2:#4A463E;  /*  8.12:1 secondary text */
+  --ink-3:#6E6A61;  /*  4.66:1 meta */
+  --ink-4:#8A8478;  /*  3.21:1 decorative only, must never carry information */
   --rule:rgba(26,24,21,.13); --rule-2:rgba(26,24,21,.28);
   --accent:__ACCENT__;
-  --decor:#C66042;  /* 陶土 3.53:1 —— 纯装饰，不可做文字或按钮底 */
+  --decor:#C66042;  /* clay 3.53:1 — decorative only, never text or a button fill */
   --ok:#3F6B4A; --warn:#8A6410; --bad:#9B2F28;
   --t-xs:11px; --t-sm:13px; --t-base:16px; --t-lg:20px;
   --t-xl:25px; --t-2xl:31px; --t-3xl:48px; --t-4xl:76px;
@@ -131,13 +132,13 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
   :root{--t-3xl:34px;--t-4xl:44px;--s-9:56px;--s-10:72px}
 }
 
-/* 底线，不是可选项 */
+/* The floor. Not optional. */
 @media(prefers-reduced-motion:reduce){
   *{animation:none!important;transition-duration:.01ms!important}
   .reveal{opacity:1!important;transform:none!important}
 }
 
-/* 这套风格的内容大概率会被打印 */
+/* Content in this style is very likely to be printed */
 @media print{
   body::before{display:none}
   body{background:#fff;color:#000;font-size:11pt}
@@ -147,93 +148,93 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 """
 
 SKELETONS = {
-    "longform": ("报头式长文", """
+    "longform": ("Masthead longform", """
 <header class="wrap" style="display:flex;align-items:baseline;gap:var(--s-5);padding-top:var(--s-5)">
-  <a href="#" class="display" style="font-size:var(--t-lg)">品牌名</a>
-  <span class="meta">第 01 期</span>
+  <a href="#" class="display" style="font-size:var(--t-lg)">Brand</a>
+  <span class="meta">Issue 01</span>
   <span style="flex:1"></span>
-  <a href="#" class="meta">目录</a><a href="#" class="meta">关于</a>
+  <a href="#" class="meta">Contents</a><a href="#" class="meta">About</a>
 </header>
 <hr class="rule" style="margin-top:var(--s-5)">
 
 <article class="wrap" style="padding-top:var(--s-9);padding-bottom:var(--s-10)">
   <h1 class="display" style="font-size:var(--t-3xl);font-weight:200;max-width:16ch">
-    标题写结论，<i>不写主题</i>
+    A headline states the conclusion, <i>not the topic</i>
   </h1>
-  <p class="lede" style="margin-top:var(--s-5)">导语一句话说清楚读者能带走什么。不超过 42 个字符宽。</p>
-  <p class="meta" style="margin-top:var(--s-5)">作者姓名 · 2026 年 8 月 7 日 · 约 6 分钟</p>
+  <p class="lede" style="margin-top:var(--s-5)">One line of standfirst saying what the reader takes away. No wider than 42 characters.</p>
+  <p class="meta" style="margin-top:var(--s-5)">Author Name · 7 August 2026 · about 6 min</p>
   <hr class="rule" style="margin:var(--s-7) 0">
   <div class="prose">
-    <p>正文版心 68ch。这个宽度不是审美选择，是 45–75 字符区间的下限——超过之后眼睛会跳行。</p>
-    <h2>小标题</h2>
-    <p>每 3–4 段插一张图版。图注用 13px，颜色 ink-3。</p>
+    <p>The body measure is 68ch. That width is not a taste decision: it is the top of the 45–75 character band, past which the eye starts losing its line.</p>
+    <h2>Subhead</h2>
+    <p>A plate every 3–4 paragraphs. Captions at 13px in ink-3.</p>
     <figure style="margin:var(--s-6) 0">
-      <img src="assets/banner.png" alt="描述图里有什么，不是关键词堆砌">
-      <figcaption>图注写图里没有的信息，不要复述标题。</figcaption>
+      <img src="assets/banner.png" alt="Describe what is in the image, not a pile of keywords">
+      <figcaption>A caption carries what the image does not; it never repeats the headline.</figcaption>
     </figure>
-    <blockquote>引用块用左侧 2px 实线，不用引号图形，不用底色。</blockquote>
+    <blockquote>Pull quotes use a 2px solid rule on the left. No quotation-mark graphic, no fill.</blockquote>
   </div>
   <hr class="rule" style="margin:var(--s-8) 0 var(--s-5)">
-  <p class="meta">最后更新 2026-08-07 · 如有更正请来信</p>
+  <p class="meta">Last updated 2026-08-07 · corrections welcome by email</p>
 </article>"""),
 
-    "landing": ("单栏落地页", """
+    "landing": ("Single-column landing", """
 <header class="wrap" style="display:flex;align-items:center;gap:var(--s-5);padding:var(--s-4) var(--s-5)">
-  <a href="#" class="display" style="font-size:var(--t-lg)">产品名</a>
+  <a href="#" class="display" style="font-size:var(--t-lg)">Product</a>
   <span style="flex:1"></span>
-  <a href="#" class="meta">功能</a><a href="#" class="meta">定价</a>
-  <a href="#" class="btn btn-primary" style="min-height:40px;padding:0 20px">开始使用</a>
+  <a href="#" class="meta">Features</a><a href="#" class="meta">Pricing</a>
+  <a href="#" class="btn btn-primary" style="min-height:40px;padding:0 20px">Get started</a>
 </header>
 <hr class="rule">
 
 <section class="wrap" style="padding:var(--s-10) var(--s-5)">
   <h1 class="display" style="font-size:var(--t-3xl);font-weight:200;max-width:18ch">
-    一句话说清楚你解决什么问题
+    One line saying what problem you solve
   </h1>
-  <p class="lede" style="margin-top:var(--s-5)">副标题补充怎么做到的，不要重复标题。</p>
+  <p class="lede" style="margin-top:var(--s-5)">The subhead adds how it is done. It never repeats the headline.</p>
   <div style="display:flex;gap:var(--s-3);margin-top:var(--s-6);flex-wrap:wrap">
-    <a href="#" class="btn btn-primary">开始免费试用</a>
-    <a href="#" class="btn btn-ghost">看看怎么用的</a>
+    <a href="#" class="btn btn-primary">Start a free trial</a>
+    <a href="#" class="btn btn-ghost">See how it works</a>
   </div>
-  <p class="meta" style="margin-top:var(--s-5)">已被 340 个团队使用 · 无需信用卡</p>
+  <p class="meta" style="margin-top:var(--s-5)">Used by 340 teams · no credit card needed</p>
 </section>
 <hr class="rule">
 
 <section class="wrap" style="padding:var(--s-9) var(--s-5)">
   <div class="prose">
-    <h2 class="display" style="font-size:var(--t-2xl)">问题出在哪</h2>
-    <p>一段说清楚痛点。用用户的语言，不用系统的语言。</p>
+    <h2 class="display" style="font-size:var(--t-2xl)">Where it goes wrong</h2>
+    <p>One paragraph naming the pain. In the user’s language, not the system’s.</p>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s-5);margin-top:var(--s-7)">
-    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">第一条</h3>
-      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">两行说明，说清楚这条解决了什么。</p></div>
-    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">第二条</h3>
-      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">不要写功能清单，写结果。</p></div>
-    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">第三条</h3>
-      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">三条足够，第四条开始稀释注意力。</p></div>
+    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">One</h3>
+      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">Two lines saying what this one solves.</p></div>
+    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">Two</h3>
+      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">Write the outcome, not a feature list.</p></div>
+    <div class="card"><h3 class="display" style="font-size:var(--t-xl)">Three</h3>
+      <p style="color:var(--ink-2);margin-top:var(--s-2);font-size:14px">Three is enough; a fourth starts diluting attention.</p></div>
   </div>
 </section>
 <hr class="rule">
 
 <section class="wrap" style="padding:var(--s-9) var(--s-5);text-align:center">
   <h2 class="display" style="font-size:var(--t-2xl);max-width:20ch;margin:0 auto">
-    第二个 CTA 用跟第一个一样的文案
+    The second CTA uses the same copy as the first
   </h2>
-  <a href="#" class="btn btn-primary" style="margin-top:var(--s-5)">开始免费试用</a>
+  <a href="#" class="btn btn-primary" style="margin-top:var(--s-5)">Start a free trial</a>
 </section>"""),
 
-    "gallery": ("图集画廊", """
+    "gallery": ("Image gallery", """
 <header class="wrap" style="display:flex;align-items:baseline;gap:var(--s-5);padding:var(--s-5)">
-  <a href="#" class="display" style="font-size:var(--t-lg)">作品集</a>
+  <a href="#" class="display" style="font-size:var(--t-lg)">Portfolio</a>
   <span class="meta">Editions No.01</span>
   <span style="flex:1"></span>
 </header>
 
 <section class="wrap" style="padding:var(--s-9) var(--s-5) var(--s-7)">
-  <h1 class="display" style="font-size:var(--t-4xl);font-weight:200;max-width:12ch">系列<i>标题</i></h1>
-  <p class="lede" style="margin-top:var(--s-5)">一句话说明这批作品是什么、怎么来的。</p>
+  <h1 class="display" style="font-size:var(--t-4xl);font-weight:200;max-width:12ch">Series <i>Title</i></h1>
+  <p class="lede" style="margin-top:var(--s-5)">One line on what this set is and where it came from.</p>
   <p class="meta" style="margin-top:var(--s-6);display:flex;gap:var(--s-5);flex-wrap:wrap">
-    <span>12 幅</span><span>双色至三色</span><span>Riso 孔版</span><span>2026</span>
+    <span>12 plates</span><span>two to three inks</span><span>Riso</span><span>2026</span>
   </p>
 </section>
 
@@ -241,29 +242,29 @@ SKELETONS = {
   <figure class="reveal" style="break-inside:avoid;margin-bottom:var(--s-6)">
     <img src="assets/banner.png" alt="">
     <figcaption style="display:flex;justify-content:space-between;padding-top:var(--s-3)">
-      <span class="display" style="font-size:17px">赭石 · 涟漪</span>
+      <span class="display" style="font-size:17px">Ochre Ripple</span>
       <span class="meta">No.01</span>
     </figcaption>
   </figure>
 </div>"""),
 
-    "docs": ("文档 / 参考", """
+    "docs": ("Docs / reference", """
 <div style="display:grid;grid-template-columns:240px 1fr;gap:var(--s-8);max-width:1200px;margin:0 auto;padding:var(--s-7) var(--s-5);position:relative;z-index:2">
   <nav style="position:sticky;top:var(--s-5);align-self:start">
-    <p class="display" style="font-size:var(--t-lg);margin-bottom:var(--s-5)">文档</p>
-    <p class="meta" style="margin-bottom:var(--s-3)">开始</p>
-    <a href="#" style="display:block;padding:6px 0">安装</a>
-    <a href="#" style="display:block;padding:6px 0;color:var(--ink-2)">快速上手</a>
-    <p class="meta" style="margin:var(--s-5) 0 var(--s-3)">参考</p>
-    <a href="#" style="display:block;padding:6px 0 6px var(--s-4);color:var(--ink-2)">参数</a>
+    <p class="display" style="font-size:var(--t-lg);margin-bottom:var(--s-5)">Docs</p>
+    <p class="meta" style="margin-bottom:var(--s-3)">Getting started</p>
+    <a href="#" style="display:block;padding:6px 0">Install</a>
+    <a href="#" style="display:block;padding:6px 0;color:var(--ink-2)">Quick start</a>
+    <p class="meta" style="margin:var(--s-5) 0 var(--s-3)">Reference</p>
+    <a href="#" style="display:block;padding:6px 0 6px var(--s-4);color:var(--ink-2)">Parameters</a>
   </nav>
   <main class="prose">
-    <h1 class="display" style="font-size:var(--t-2xl);font-weight:300">安装</h1>
-    <p class="meta" style="margin-top:var(--s-2)">最后更新 2026-08-07</p>
-    <p style="margin-top:var(--s-5)">先说前置条件，再给命令。不要让读者装到一半才发现缺依赖。</p>
+    <h1 class="display" style="font-size:var(--t-2xl);font-weight:300">Install</h1>
+    <p class="meta" style="margin-top:var(--s-2)">Last updated 2026-08-07</p>
+    <p style="margin-top:var(--s-5)">State the prerequisites first, then give the command. Do not let the reader get halfway through and discover a missing dependency.</p>
     <pre style="background:var(--paper-3);padding:var(--s-4);font-family:ui-monospace,monospace;font-size:13px;overflow-x:auto"><code>pip install pillow numpy</code></pre>
     <div style="border-left:2px solid var(--accent);padding-left:var(--s-4);margin:var(--s-5) 0">
-      <p style="font-size:14px;color:var(--ink-2);margin:0">提示块用左侧实线，不用图标不用底色。</p>
+      <p style="font-size:14px;color:var(--ink-2);margin:0">Callouts use a solid rule on the left. No icon, no fill.</p>
     </div>
   </main>
 </div>"""),
@@ -277,7 +278,7 @@ def build(skeleton, pairing, accent):
                  .replace("__DISPLAY__", p["display"])
                  .replace("__UI__", p["ui"]) + BASE)
     name, body = SKELETONS[skeleton]
-    head = '<!DOCTYPE html>' + chr(10) + '<html lang="zh-CN">' + chr(10) + '<head>' + chr(10)
+    head = '<!DOCTYPE html>' + chr(10) + '<html lang="en">' + chr(10) + '<head>' + chr(10)
     head += '<meta charset="UTF-8">' + chr(10)
     head += '<meta name="viewport" content="width=device-width, initial-scale=1">' + chr(10)
     head += '<title>' + name + ' · riso-press scaffold</title>' + chr(10)
@@ -289,25 +290,25 @@ def build(skeleton, pairing, accent):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="riso-press 起始页生成器")
+    ap = argparse.ArgumentParser(description="riso-press starter page generator")
     ap.add_argument("--skeleton", choices=list(SKELETONS), default="longform")
     ap.add_argument("--pairing", choices=list(PAIRINGS), default="editorial")
     ap.add_argument("--accent", choices=list(ACCENTS), default="rust")
-    ap.add_argument("--tokens-only", action="store_true", help="只输出 CSS token")
+    ap.add_argument("--tokens-only", action="store_true", help="output the CSS tokens only")
     ap.add_argument("--out", default=None)
-    ap.add_argument("--list", action="store_true", help="列出全部可选项")
+    ap.add_argument("--list", action="store_true", help="list every available option")
     a = ap.parse_args()
 
     if a.list:
-        print("骨架:")
+        print("Skeletons:")
         for k, (n, _) in SKELETONS.items():
             print("  " + k.ljust(10) + " " + n)
         print("")
-        print("字体配对:")
+        print("Font pairings:")
         for k, v in PAIRINGS.items():
             print("  " + k.ljust(10) + " " + v["label"].ljust(6) + " " + v["note"])
         print("")
-        print("强调色（纸底做文字 / 白字做按钮底）:")
+        print("Accents (as text on paper / as a button fill with white text):")
         for k, (h, t, b, n) in ACCENTS.items():
             print("  " + k.ljust(8) + " " + h + "  " + ("%.2f" % t) + ":1 / " + ("%.2f" % b) + ":1  " + n)
         return
@@ -324,8 +325,8 @@ def main():
         open(a.out, "w", encoding="utf-8").write(out)
         h, t, b, _ = ACCENTS[a.accent]
         print("OK  " + a.out)
-        print("  骨架 " + a.skeleton + " · 字体 " + PAIRINGS[a.pairing]["label"] + " · 强调 " + a.accent + " " + h)
-        print("  对比度 文字 " + ("%.2f" % t) + ":1 / 白字按钮底 " + ("%.2f" % b) + ":1")
+        print("  skeleton " + a.skeleton + " · fonts " + PAIRINGS[a.pairing]["label"] + " · accent " + a.accent + " " + h)
+        print("  contrast — text " + ("%.2f" % t) + ":1 / white on fill " + ("%.2f" % b) + ":1")
     else:
         sys.stdout.write(out)
 

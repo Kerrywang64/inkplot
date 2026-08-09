@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""生成 README 用的展示图（确定性，同种子同结果）。
+"""Render the showcase images used by the README (deterministic: same seed, same result).
 
     python3 scripts/make_assets.py
 
-产出 assets/banner.png 与 assets/sheet.png。CI 会自动跑这个并提交回仓库，
-所以改了图案或色板之后，README 的展示图会自己跟着更新。
+Writes assets/banner.png and assets/sheet.png. CI runs this and commits the result
+back, so once a pattern or the palette changes, the README images follow on their own.
 """
 import base64, io, json, os, subprocess, sys
 
 try:
     from PIL import Image
 except ImportError:
-    sys.exit("需要 Pillow：pip install pillow numpy")
+    sys.exit("Pillow is required: pip install pillow numpy")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "assets")
 PAPER = (241, 236, 227)
-SEED = "1024"          # 固定，换了这个展示图就会变
+SEED = "1024"          # fixed; change this and the showcase images change
 
 
 def build():
@@ -34,7 +34,7 @@ def build():
 
     os.makedirs(OUT, exist_ok=True)
 
-    # 横幅：6 张一排
+    # Banner: six in a row
     cell, gap = 112, 8
     b = Image.new("RGB", (6 * cell + 7 * gap, cell + 2 * gap), PAPER)
     for i in range(6):
@@ -42,7 +42,7 @@ def build():
     b.convert("P", palette=Image.ADAPTIVE, colors=16).save(
         os.path.join(OUT, "banner.png"), optimize=True)
 
-    # 联系样张：12 张 6×2
+    # Contact sheet: twelve, 6×2
     cell, gap = 92, 6
     s = Image.new("RGB", (6 * cell + 7 * gap, 2 * cell + 3 * gap), PAPER)
     for i in range(12):

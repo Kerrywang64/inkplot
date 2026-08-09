@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 const js = fs.readFileSync('scripts/collage.js','utf8');
 const S = [11,22,33,44,55,66,77,88,99,101].map(x=>20260808+x*7919);
-/* 用户挑的 16 张，按主色从多候选里定位到的 (种子, 序号) */
+/* The 16 hand-picked plates, located as (seed, index) by matching their dominant colour */
 const PICKS = [
  [S[9],8],[S[0],4],[S[0],11],[S[1],8],
  [S[1],1],[S[2],3],[S[4],7],[S[3],11],
@@ -20,12 +20,12 @@ const rows = await p.evaluate(picks => {
   for (const [sd,i] of picks) {
     if (cur!==sd) { COLLAGE.init({count:12, seed:sd, scale:1}); cur=sd; }
     const m=COLLAGE.meta(i), cv=COLLAGE.render(i,3);
-    o.push({u:cv.toDataURL('image/png'), zh:m.zh, en:COLLAGE.viz.indexOf(m.viz)>=0?m.en:'', sk:m.skeleton, w:cv.width, h:cv.height});
+    o.push({u:cv.toDataURL('image/png'), name:m.name, sk:m.skeleton, w:cv.width, h:cv.height});
   }
   return o;
 }, PICKS);
 
-/* 画廊：四列，自然高度 */
+/* Gallery: four columns, natural height */
 await p.evaluate(rows => {
   document.body.style.background='#EEEAE1';
   document.body.innerHTML =
@@ -41,7 +41,7 @@ await p.evaluate(rows => {
 await p.waitForTimeout(900);
 await p.screenshot({ path:'assets/gallery.png', fullPage:true });
 
-/* 横幅：取其中六张裁成一条 */
+/* Banner: six of them cropped into a strip */
 await p.setViewportSize({width:1600,height:560});
 await p.evaluate(rows => {
   const pickIdx=[8,0,7,11,14,2];

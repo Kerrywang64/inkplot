@@ -1,20 +1,24 @@
 /* ============================================================
    riso-press · COLLAGE  v1
-   拼贴排版引擎。
+   Collage composition engine.
 
-   为什么是拼贴而不是"生成插画"：
-   把 anthropic.com 首页 28 张插图全部放大看过之后，结论是这套风格的主体
-   材料是**找来的实物图** —— 19 世纪铜版画扫描件、实物摄影、真实印刷网点。
-   线描只占一小部分，而且是干笔（炭笔/蜡笔），不是钢笔勾线。
+   Why collage and not "generated illustration":
+   After blowing up all 28 illustrations on the anthropic.com home page, the
+   conclusion is that the primary material of this style is **found imagery** —
+   scans of 19th-century engravings, object photography, real print halftones.
+   Line work is a small part of it, and it is dry media (charcoal / crayon),
+   not pen outlines.
 
-   素材是输入，不是算法能生成的东西。所以这个引擎只做算法能做对的那一半：
+   Found imagery is an input, not something an algorithm can produce. So this
+   engine only does the half an algorithm can get right:
 
-     色场分割 · 撕边 · 干笔笔触 · 网点叠印 · 单色化 · 构图骨架
+     field splitting · torn edges · dry brush · halftone overprint · monochrome · skeletons
 
-   图片槽位（slot）由外部素材填充。没有素材时用程序化占位，占位一眼看得出
-   是占位，不冒充成品。
+   Image slots are filled by external material. With no material supplied a
+   procedural placeholder is drawn — obviously a placeholder, never pretending
+   to be a finished image.
 
-   用法:
+   Usage:
      COLLAGE.materials([{src:'engraving-01.png', kind:'engraving'}, ...]);
      COLLAGE.init({ count:24, seed:20260808 });
      COLLAGE.attach(el, 0);
@@ -22,7 +26,7 @@
 (function (root) {
 'use strict';
 
-/* ───────── 随机 ───────── */
+/* ───────── RNG ───────── */
 var SEED = 1;
 function srnd(s) { SEED = s >>> 0; }
 function rnd() { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }
@@ -44,32 +48,35 @@ function mkNoise(seed) {
 }
 function fbm(n, x, y, o) { var v = 0, a = 0.5, f = 1; for (var i = 0; i < (o || 4); i++) { v += a * n(x * f, y * f); f *= 2; a *= 0.5; } return v; }
 
-/* ───────── 色 ─────────
-   取自首页 28 张实测：中饱和、偏土、偶有一个高饱和度的跳色 */
+/* ───────── Colour ─────────
+   Measured off the 28 home-page illustrations: mid saturation, earth-leaning,
+   with the occasional high-saturation jump colour */
 var FIELDS = [
-  /* 土系（原来只有这一族，太保守） */
+  /* earth (originally the only family — too conservative) */
   [204, 120,  92], [217, 119,  87], [201, 163, 138], [232, 168,  64], [166,  92,  44],
-  /* 绿系 */
+  /* green */
   [124, 144, 104], [ 98, 116,  86], [ 68, 150,  72], [ 32, 104,  76], [176, 200,  92],
-  /* 青蓝系 */
+  /* cyan–blue */
   [ 74, 160, 152], [ 44, 122, 140], [104, 158, 214], [ 38,  70, 148], [140, 200, 208],
-  /* 紫粉红系 */
+  /* purple–pink–red */
   [155, 147, 224], [112,  84, 188], [196,  84, 122], [230, 128, 160], [ 92,  38,  52],
-  /* 高饱和跳色 —— 每张最多用一个，靠 contrastPick 保证不撞 */
+  /* high-saturation jump colours — at most one per plate; contrastPick keeps them apart */
   [232,  60,  52], [248, 120,  32], [252, 208,  60], [ 24, 176, 128], [236,  84, 148],
-  /* 中性 */
+  /* neutral */
   [237, 228, 211], [227, 225, 220], [206, 200, 188], [ 26,  26,  24], [ 58,  56,  52]
 ];
-/* 色调族：一张画面从同一族里取两个色，不同族之间大胆跳
-   —— 这样既敢用高饱和，又不会两个艳色平分画面 */
+/* Tone families: a plate takes two colours from the same family, and jumps boldly
+   between families — that way it can use high saturation without two loud colours
+   splitting the frame down the middle */
 var FAMILIES = [[0,5],[5,10],[10,15],[15,20],[20,25],[25,30]];
 var PAPER = [244, 240, 230];
 var INK   = [ 24,  24,  22];
 function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')'; }
 function lum(c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
 function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t | 0, a[1] + (b[1] - a[1]) * t | 0, a[2] + (b[2] - a[2]) * t | 0]; }
-/* 第二色场：明度差必须 ≥ 62，否则两个色平分画面会互相打架。
-   在合格的候选里随机取，而不是取最大差 —— 取最大会永远选到黑白。 */
+/* Second field: the brightness gap must be ≥ 62, otherwise the two colours split the
+   frame and fight each other. Pick at random among the qualifying candidates rather
+   than taking the largest gap — largest always lands on black and white. */
 function contrastPick(bg, pool) {
   var ok = [];
   for (var i = 0; i < pool.length; i++) if (Math.abs(lum(pool[i]) - lum(bg)) >= 62) ok.push(pool[i]);
@@ -81,7 +88,7 @@ function contrastPick(bg, pool) {
   return ok[Math.floor(rnd() * ok.length)];
 }
 
-/* ───────── 撕边 ───────── */
+/* ───────── Torn edge ───────── */
 var EN = null;
 function tornPath(g, pts, amp) {
   amp = amp === undefined ? 1 : amp;
@@ -102,7 +109,7 @@ function tornPath(g, pts, amp) {
   }
   g.closePath();
 }
-/* 扇贝边：首页那张粉/酒红的分界就是这个 */
+/* Scalloped edge: the pink / wine boundary on the home page is exactly this */
 function scallopPath(g, x, y, w, h, n, up) {
   var r = w / (2 * n);
   g.beginPath();
@@ -116,8 +123,9 @@ function scallopPath(g, x, y, w, h, n, up) {
   g.closePath();
 }
 
-/* ───────── 干笔笔触 ─────────
-   炭笔/蜡笔：宽度不匀、边缘发毛、中段有断墨。不是等宽矢量线。 */
+/* ───────── Dry brush ─────────
+   Charcoal / crayon: uneven width, frayed edges, ink skipping in the middle.
+   Not a constant-width vector line. */
 function dryStroke(g, P, w, col) {
   var pass = 3;
   for (var p = 0; p < pass; p++) {
@@ -134,7 +142,7 @@ function dryStroke(g, P, w, col) {
     g.stroke();
   }
   g.globalAlpha = 1;
-  /* 断墨：沿路径随机剜掉几段 */
+  /* Ink skip: gouge a few random segments out along the path */
   g.save();
   g.globalCompositeOperation = 'destination-out';
   for (var k = 0; k < P.length; k += ri(4, 9)) {
@@ -152,8 +160,9 @@ function segPts(x1, y1, x2, y2, n) {
   return P;
 }
 
-/* ───────── 网点叠印 ─────────
-   把一块区域按亮度打成网点。真印刷网点是不匀的，所以点心也带抖动。 */
+/* ───────── Halftone overprint ─────────
+   Screen an area into dots by luminance. Real print dots are uneven, so the dot
+   centres jitter too. */
 function screenRegion(cv, x, y, w, h, step, col, N) {
   var g = cv.getContext('2d');
   var src = g.getImageData(x, y, w, h), d = src.data;
@@ -167,7 +176,7 @@ function screenRegion(cv, x, y, w, h, step, col, N) {
       var L = (0.2126 * d[o] + 0.7152 * d[o + 1] + 0.0722 * d[o + 2]) / 255;
       var a = d[o + 3] / 255;
       var r = step * 0.62 * Math.sqrt(Math.max(0, 1 - L)) * a;
-      r *= 0.8 + 0.4 * fbm(N, i * 0.4, j * 0.4, 2);         /* 点心不匀 */
+      r *= 0.8 + 0.4 * fbm(N, i * 0.4, j * 0.4, 2);         /* uneven dot centres */
       if (r > 0.25) {
         g.beginPath();
         g.arc(x + px + (rnd() - 0.5) * step * 0.16, y + py + (rnd() - 0.5) * step * 0.16, r, 0, 6.2832);
@@ -177,19 +186,21 @@ function screenRegion(cv, x, y, w, h, step, col, N) {
   }
 }
 
-/* ───────── 数据可视化标本库 ─────────
-   槽位里放的不是照片，是**数据图形**。理由：可算法生成、可复现、零素材依赖，
-   而且它自带含义 —— 饼图就是饼图，抽出任何一张都认得出在说什么。
+/* ───────── Data-visualization specimen library ─────────
+   What goes in a slot is not a photograph but a **data figure**. Reasons: it can be
+   generated, it is reproducible, it needs zero assets — and it carries its own
+   meaning. A pie chart is a pie chart; pull any single plate out and you can still
+   tell what it is saying.
 
-   三条硬约束（上一轮翻车的教训全在这）：
-     1. 一个槽位只放一个标本，不叠加
-     2. 元素数量封顶（饼 3–5 瓣、柱 5–9 根、散点 ≤ 34），宁少不多
-     3. 标本占槽位 55%–75%，四周留白，不铺满
+   Three hard constraints (every one of them learned from the round that failed):
+     1. one specimen per slot, never stacked
+     2. element counts are capped (pie 3–5 slices, bars 5–9, scatter ≤ 34) — fewer beats more
+     3. the specimen occupies 55%–75% of the slot; leave margin, do not fill it
    ============================================================ */
 
-var LW = 2;                                    /* 标本笔宽，由槽位尺寸推出 */
-/* 笔法模式：同一个标本，画法不同就是两张图。
-   0 常规 · 1 偏实心 · 2 全空心细线 · 3 虚线 · 4 全实心 */
+var LW = 2;                                    /* specimen stroke width, derived from the slot size */
+/* Stroke modes: the same specimen drawn a different way is a different image.
+   0 normal · 1 mostly filled · 2 all hairline outline · 3 dashed · 4 all filled */
 var STYLE = 0;
 function lineTo(g, P) { g.beginPath(); for (var i = 0; i < P.length; i++) i ? g.lineTo(P[i][0], P[i][1]) : g.moveTo(P[i][0], P[i][1]); }
 function disc(g, x, y, r) {
@@ -201,15 +212,15 @@ function ring(g, x, y, r) {
   g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.stroke();
 }
 
-/* 每个标本函数拿到一个已经留好边的方框 R = {x,y,w,h,cx,cy,s} */
+/* Every specimen function receives a box with its margin already subtracted: R = {x,y,w,h,cx,cy,s} */
 var VIZ = {
 
-  pie: ['饼图', 'Pie', function (g, R) {
+  pie: ['Pie', function (g, R) {
     var n = ri(3, 5), r = R.s * 0.42, a = -1.5708, parts = [];
     for (var i = 0; i < n; i++) parts.push(rf(0.6, 2.2));
     var tot = parts.reduce(function (x, y) { return x + y; }, 0);
     for (var i2 = 0; i2 < n; i2++) {
-      var d = parts[i2] / tot * 6.2832, off = i2 === 0 ? r * 0.10 : 0;   /* 只有一瓣拉出来 */
+      var d = parts[i2] / tot * 6.2832, off = i2 === 0 ? r * 0.10 : 0;   /* only one slice is pulled out */
       var mid = a + d / 2;
       g.beginPath();
       g.moveTo(R.cx + Math.cos(mid) * off, R.cy + Math.sin(mid) * off);
@@ -220,7 +231,7 @@ var VIZ = {
     }
   }],
 
-  donut: ['环图', 'Donut', function (g, R) {
+  donut: ['Donut', function (g, R) {
     var r = R.s * 0.40, t = r * 0.34, n = ri(3, 4), a = -1.5708;
     for (var i = 0; i < n; i++) {
       var d = 6.2832 / n * rf(0.6, 1.4);
@@ -231,7 +242,7 @@ var VIZ = {
     g.lineWidth = LW;
   }],
 
-  venn: ['文氏图', 'Venn', function (g, R) {
+  venn: ['Venn', function (g, R) {
     var n = rnd() < 0.55 ? 2 : 3, r = R.s * (n === 2 ? 0.28 : 0.24);
     var C = n === 2 ? [[-r * 0.62, 0], [r * 0.62, 0]]
                     : [[0, -r * 0.66], [-r * 0.60, r * 0.40], [r * 0.60, r * 0.40]];
@@ -243,7 +254,7 @@ var VIZ = {
     }
   }],
 
-  bars: ['直方图', 'Histogram', function (g, R) {
+  bars: ['Histogram', function (g, R) {
     var n = ri(5, 9), gw = R.w / n, base = R.y + R.h * 0.90;
     for (var i = 0; i < n; i++) {
       var t = (i + 0.5) / n;
@@ -255,7 +266,7 @@ var VIZ = {
     lineTo(g, [[R.x, base], [R.x + R.w, base]]); g.stroke();
   }],
 
-  lollipop: ['点棒图', 'Lollipop', function (g, R) {
+  lollipop: ['Lollipop', function (g, R) {
     var n = ri(4, 7), gw = R.w / n, base = R.y + R.h * 0.90;
     for (var i = 0; i < n; i++) {
       var x = R.x + gw * (i + 0.5), h = R.h * rf(0.22, 0.78);
@@ -265,7 +276,7 @@ var VIZ = {
     lineTo(g, [[R.x, base], [R.x + R.w, base]]); g.stroke();
   }],
 
-  line: ['折线', 'Line', function (g, R) {
+  line: ['Line', function (g, R) {
     var n = ri(6, 10), P = [], y = R.cy;
     for (var i = 0; i <= n; i++) {
       y += rf(-1, 1) * R.h * 0.16;
@@ -277,7 +288,7 @@ var VIZ = {
     lineTo(g, [[R.x, R.y + R.h * 0.96], [R.x + R.w, R.y + R.h * 0.96]]); g.stroke();
   }],
 
-  area: ['面积图', 'Area', function (g, R) {
+  area: ['Area', function (g, R) {
     var n = 9, P = [], y = R.cy;
     for (var i = 0; i <= n; i++) {
       y += rf(-1, 1) * R.h * 0.14;
@@ -291,7 +302,7 @@ var VIZ = {
     lineTo(g, P); g.stroke();
   }],
 
-  scatter: ['散点', 'Scatter', function (g, R) {
+  scatter: ['Scatter', function (g, R) {
     var n = ri(16, 30);
     for (var i = 0; i < n; i++) {
       var t = rnd();
@@ -302,7 +313,7 @@ var VIZ = {
     lineTo(g, [[R.x + R.w * 0.06, R.y + R.h * 0.84], [R.x + R.w * 0.94, R.y + R.h * 0.20]]); g.stroke();
   }],
 
-  nebula: ['星云图', 'Nebula', function (g, R) {
+  nebula: ['Nebula', function (g, R) {
     var n = ri(120, 220), N2 = mkNoise(ri(1, 1e9));
     for (var i = 0; i < n; i++) {
       var a = rnd() * 6.2832, rr = Math.pow(rnd(), 0.6) * R.s * 0.44;
@@ -314,7 +325,7 @@ var VIZ = {
     ring(g, R.cx, R.cy, R.s * 0.46);
   }],
 
-  contour: ['等值线', 'Contour', function (g, R) {
+  contour: ['Contour', function (g, R) {
     var N2 = mkNoise(ri(1, 1e9)), lv = ri(3, 5);
     for (var L = 1; L <= lv; L++) {
       var P = [];
@@ -327,7 +338,7 @@ var VIZ = {
     }
   }],
 
-  tree: ['树图', 'Tree', function (g, R) {
+  tree: ['Tree', function (g, R) {
     var lv = 3, prev = [{ x: R.cx, y: R.y + R.h * 0.12 }], all = [prev[0]], r = R.s * 0.036;
     for (var L = 1; L < lv; L++) {
       var y = R.y + R.h * (0.12 + 0.72 * L / (lv - 1)), cur = [], plan = [], cnt = 0, idx = 0;
@@ -343,7 +354,7 @@ var VIZ = {
       (rnd() < 0.34) ? disc(g, all[i3].x, all[i3].y, r) : ring(g, all[i3].x, all[i3].y, r);
   }],
 
-  dendro: ['聚类树', 'Dendrogram', function (g, R) {
+  dendro: ['Dendrogram', function (g, R) {
     var n = 6, xs = [], base = R.y + R.h * 0.90;
     for (var i = 0; i < n; i++) xs.push({ x: R.x + R.w * (i + 0.5) / n, y: base });
     var lvl = 0;
@@ -361,7 +372,7 @@ var VIZ = {
     for (var i3 = 0; i3 < n; i3++) disc(g, R.x + R.w * (i3 + 0.5) / n, base, LW * 1.4);
   }],
 
-  network: ['网络图', 'Network', function (g, R) {
+  network: ['Network', function (g, R) {
     var n = ri(6, 9), P = [], tries = 0, minD = R.s * 0.22;
     while (P.length < n && tries++ < 700) {
       var p = { x: R.x + rf(0.08, 0.92) * R.w, y: R.y + rf(0.08, 0.92) * R.h }, ok = true;
@@ -369,7 +380,7 @@ var VIZ = {
       if (ok) P.push(p);
     }
     var inT = [0], out = []; for (var i2 = 1; i2 < P.length; i2++) out.push(i2);
-    while (out.length) {                       /* 最小生成树：连线数最少，画面不糊 */
+    while (out.length) {                       /* minimum spanning tree: fewest edges, image stays legible */
       var bi = 0, bj = 0, bd = 1e9;
       for (var a = 0; a < inT.length; a++) for (var b = 0; b < out.length; b++) {
         var d = Math.hypot(P[inT[a]].x - P[out[b]].x, P[inT[a]].y - P[out[b]].y);
@@ -383,7 +394,7 @@ var VIZ = {
       (rnd() < 0.32) ? disc(g, P[i3].x, P[i3].y, r2) : ring(g, P[i3].x, P[i3].y, r2);
   }],
 
-  sankey: ['桑基图', 'Sankey', function (g, R) {
+  sankey: ['Sankey', function (g, R) {
     var n = ri(2, 3), lx = R.x + R.w * 0.10, rx = R.x + R.w * 0.90;
     var ys = [], tot = 0, wts = [];
     for (var i = 0; i < n; i++) { wts.push(rf(0.6, 1.8)); tot += wts[i]; }
@@ -401,7 +412,7 @@ var VIZ = {
     g.fillRect(rx, R.y + R.h * 0.18, LW * 2.4, R.h * 0.64);
   }],
 
-  chord: ['弦图', 'Chord', function (g, R) {
+  chord: ['Chord', function (g, R) {
     var r = R.s * 0.40, n = ri(3, 5), pts = [];
     ring(g, R.cx, R.cy, r);
     for (var i = 0; i < n; i++) { var a = rnd() * 6.2832; pts.push([R.cx + Math.cos(a) * r, R.cy + Math.sin(a) * r]); }
@@ -413,9 +424,9 @@ var VIZ = {
     for (var i3 = 0; i3 < n; i3++) disc(g, pts[i3][0], pts[i3][1], LW * 1.6);
   }],
 
-  radar: ['雷达图', 'Radar', function (g, R) {
+  radar: ['Radar', function (g, R) {
     var n = ri(5, 6), r = R.s * 0.40, P = [];
-    for (var k = 1; k <= 2; k++) {                /* 只画两圈网格 */
+    for (var k = 1; k <= 2; k++) {                /* only two grid rings */
       var G = [];
       for (var i = 0; i <= n; i++) { var a = -1.5708 + i / n * 6.2832; G.push([R.cx + Math.cos(a) * r * k / 2, R.cy + Math.sin(a) * r * k / 2]); }
       lineTo(g, G); g.stroke();
@@ -429,7 +440,7 @@ var VIZ = {
     lineTo(g, P); g.globalAlpha = 0.28; g.fill(); g.globalAlpha = 1; g.stroke();
   }],
 
-  rose: ['玫瑰图', 'Rose', function (g, R) {
+  rose: ['Rose', function (g, R) {
     var n = ri(6, 9), r = R.s * 0.42;
     for (var i = 0; i < n; i++) {
       var a0 = i / n * 6.2832, a1 = (i + 1) / n * 6.2832 - 0.03;
@@ -440,7 +451,7 @@ var VIZ = {
     }
   }],
 
-  matrix: ['矩阵图', 'Matrix', function (g, R) {
+  matrix: ['Matrix', function (g, R) {
     var n = ri(4, 6), c = Math.min(R.w, R.h) / n * 0.92, ox = R.cx - c * n / 2, oy = R.cy - c * n / 2;
     for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
       var v = Math.abs(Math.sin(i * 1.9 + j * 2.7));
@@ -451,7 +462,7 @@ var VIZ = {
     }
   }],
 
-  waffle: ['单位图', 'Waffle', function (g, R) {
+  waffle: ['Waffle', function (g, R) {
     var n = 5, c = Math.min(R.w, R.h) / n * 0.90, ox = R.cx - c * n / 2, oy = R.cy - c * n / 2;
     var fill = ri(7, 17);
     for (var i = 0; i < n * n; i++) {
@@ -460,7 +471,7 @@ var VIZ = {
     }
   }],
 
-  box: ['箱线图', 'Box Plot', function (g, R) {
+  box: ['Box Plot', function (g, R) {
     var n = ri(3, 4), gw = R.w / n;
     for (var i = 0; i < n; i++) {
       var x = R.x + gw * (i + 0.5), w = gw * 0.34;
@@ -473,7 +484,7 @@ var VIZ = {
     }
   }],
 
-  gauge: ['仪表', 'Gauge', function (g, R) {
+  gauge: ['Gauge', function (g, R) {
     var r = R.s * 0.40, cy = R.cy + R.s * 0.14;
     g.lineWidth = LW * 1.1;
     g.beginPath(); g.arc(R.cx, cy, r, Math.PI, 6.2832); g.stroke();
@@ -491,7 +502,7 @@ var VIZ = {
     disc(g, R.cx, cy, LW * 2.0);
   }],
 
-  timeline: ['时间轴', 'Timeline', function (g, R) {
+  timeline: ['Timeline', function (g, R) {
     var y = R.cy, n = ri(4, 6);
     g.lineWidth = LW * 1.2; lineTo(g, [[R.x, y], [R.x + R.w, y]]); g.stroke(); g.lineWidth = LW;
     for (var i = 0; i < n; i++) {
@@ -501,7 +512,7 @@ var VIZ = {
     }
   }],
 
-  stream: ['流图', 'Stream', function (g, R) {
+  stream: ['Stream', function (g, R) {
     var lanes = ri(2, 3), N2 = mkNoise(ri(1, 1e9));
     for (var L = 0; L < lanes; L++) {
       var top = [], bot = [];
@@ -520,9 +531,9 @@ var VIZ = {
     }
   }],
 
-  /* ── 以下是较新的形式：嵌入投影、注意力、拓扑、密度族 ── */
+  /* ── From here on, the newer forms: embeddings, attention, topology, density ── */
 
-  umap: ['嵌入投影', 'Embedding', function (g, R) {
+  umap: ['Embedding', function (g, R) {
     var k = ri(3, 4), C = [];
     for (var i = 0; i < k; i++) C.push([R.cx + rf(-0.30, 0.30) * R.w, R.cy + rf(-0.30, 0.30) * R.h, R.s * rf(0.09, 0.15)]);
     for (var c = 0; c < k; c++) {
@@ -535,9 +546,9 @@ var VIZ = {
     }
   }],
 
-  attention: ['注意力矩阵', 'Attention', function (g, R) {
+  attention: ['Attention', function (g, R) {
     var n = ri(7, 10), c = Math.min(R.w, R.h) / n, ox = R.cx - c * n / 2, oy = R.cy - c * n / 2;
-    for (var i = 0; i < n; i++) for (var j = 0; j <= i; j++) {      /* 因果掩码：只有下三角 */
+    for (var i = 0; i < n; i++) for (var j = 0; j <= i; j++) {      /* causal mask: lower triangle only */
       var v = Math.abs(Math.sin(i * 1.7 + j * 2.3)) * (0.35 + 0.65 * (j + 1) / (i + 1));
       g.globalAlpha = 0.10 + v * 0.85;
       g.fillRect(ox + j * c + c * 0.06, oy + i * c + c * 0.06, c * 0.88, c * 0.88);
@@ -546,7 +557,7 @@ var VIZ = {
     g.strokeRect(ox, oy, c * n, c * n);
   }],
 
-  tokens: ['候选分布', 'Top-k', function (g, R) {
+  tokens: ['Top-k', function (g, R) {
     var n = ri(4, 6), gh = R.h / (n + 0.6);
     for (var i = 0; i < n; i++) {
       var y = R.y + gh * (i + 0.3), w = R.w * (0.90 * Math.pow(0.56, i) + 0.06);
@@ -554,7 +565,7 @@ var VIZ = {
     }
   }],
 
-  beeswarm: ['蜂群图', 'Beeswarm', function (g, R) {
+  beeswarm: ['Beeswarm', function (g, R) {
     var n = ri(26, 40), y0 = R.cy, used = [];
     for (var i = 0; i < n; i++) {
       var t = 0.5 + (rnd() + rnd() + rnd() - 1.5) * 0.30;
@@ -568,7 +579,7 @@ var VIZ = {
     lineTo(g, [[R.x, R.y + R.h * 0.94], [R.x + R.w, R.y + R.h * 0.94]]); g.stroke();
   }],
 
-  ridgeline: ['山脊图', 'Ridgeline', function (g, R) {
+  ridgeline: ['Ridgeline', function (g, R) {
     var lanes = ri(4, 6), N2 = mkNoise(ri(1, 1e9));
     for (var L = lanes - 1; L >= 0; L--) {
       var base = R.y + R.h * (0.20 + 0.72 * L / (lanes - 1)), P = [];
@@ -586,7 +597,7 @@ var VIZ = {
     }
   }],
 
-  violin: ['小提琴图', 'Violin', function (g, R) {
+  violin: ['Violin', function (g, R) {
     var n = ri(2, 3), gw = R.w / n, N2 = mkNoise(ri(1, 1e9));
     for (var i = 0; i < n; i++) {
       var cx = R.x + gw * (i + 0.5), P = [], Q = [];
@@ -605,7 +616,7 @@ var VIZ = {
     }
   }],
 
-  hexbin: ['六角分箱', 'Hexbin', function (g, R) {
+  hexbin: ['Hexbin', function (g, R) {
     var rr = R.s * 0.085, N2 = mkNoise(ri(1, 1e9));
     var dx = rr * 1.732, dy = rr * 1.5;
     for (var j = -2; j < R.h / dy + 1; j++) for (var i = -1; i < R.w / dx + 1; i++) {
@@ -620,7 +631,7 @@ var VIZ = {
     }
   }],
 
-  voronoi: ['沃罗诺伊', 'Voronoi', function (g, R) {
+  voronoi: ['Voronoi', function (g, R) {
     var n = ri(7, 11), S = [];
     for (var i = 0; i < n; i++) S.push([R.x + rf(0.06, 0.94) * R.w, R.y + rf(0.06, 0.94) * R.h]);
     var step = Math.max(2, R.s / 90);
@@ -637,7 +648,7 @@ var VIZ = {
     for (var i2 = 0; i2 < n; i2++) disc(g, S[i2][0], S[i2][1], LW * 1.5);
   }],
 
-  treemap: ['矩形树图', 'Treemap', function (g, R) {
+  treemap: ['Treemap', function (g, R) {
     function split(x, y, w, h, d) {
       if (d === 0 || w < R.s * 0.14 || h < R.s * 0.14) {
         (rnd() < 0.25) ? g.fillRect(x + LW, y + LW, w - LW * 2, h - LW * 2)
@@ -651,7 +662,7 @@ var VIZ = {
     split(R.x, R.y, R.w, R.h, ri(2, 3));
   }],
 
-  circlepack: ['圆填充', 'Circle Pack', function (g, R) {
+  circlepack: ['Circle Pack', function (g, R) {
     var C = [], tries = 0;
     while (C.length < 16 && tries++ < 900) {
       var r = R.s * rf(0.035, 0.13);
@@ -665,7 +676,7 @@ var VIZ = {
     for (var k = 0; k < C.length; k++) (k % 5 === 0) ? disc(g, C[k][0], C[k][1], C[k][2]) : ring(g, C[k][0], C[k][1], C[k][2]);
   }],
 
-  arcdiag: ['弧连接图', 'Arc Diagram', function (g, R) {
+  arcdiag: ['Arc Diagram', function (g, R) {
     var n = ri(6, 9), y = R.y + R.h * 0.74, xs = [];
     for (var i = 0; i < n; i++) xs.push(R.x + R.w * (i + 0.5) / n);
     lineTo(g, [[R.x, y], [R.x + R.w, y]]); g.stroke();
@@ -677,7 +688,7 @@ var VIZ = {
     for (var i2 = 0; i2 < n; i2++) disc(g, xs[i2], y, LW * 1.5);
   }],
 
-  parallel: ['平行坐标', 'Parallel Coords', function (g, R) {
+  parallel: ['Parallel Coords', function (g, R) {
     var ax = ri(3, 5), n = ri(5, 8);
     for (var i = 0; i < ax; i++) {
       var x = R.x + R.w * i / (ax - 1);
@@ -691,7 +702,7 @@ var VIZ = {
     }
   }],
 
-  bump: ['名次流', 'Bump Chart', function (g, R) {
+  bump: ['Bump Chart', function (g, R) {
     var n = ri(3, 4), t = ri(4, 5), rank = [];
     for (var i = 0; i < n; i++) rank.push(i);
     var series = [];
@@ -706,7 +717,7 @@ var VIZ = {
     }
   }],
 
-  slope: ['斜率图', 'Slope', function (g, R) {
+  slope: ['Slope', function (g, R) {
     var n = ri(4, 6), x0 = R.x + R.w * 0.12, x1 = R.x + R.w * 0.88;
     lineTo(g, [[x0, R.y], [x0, R.y + R.h]]); g.globalAlpha = 0.4; g.stroke();
     lineTo(g, [[x1, R.y], [x1, R.y + R.h]]); g.stroke(); g.globalAlpha = 1;
@@ -717,7 +728,7 @@ var VIZ = {
     }
   }],
 
-  loss: ['训练曲线', 'Loss Curve', function (g, R) {
+  loss: ['Loss Curve', function (g, R) {
     var P = [], U = [], D = [], N2 = mkNoise(ri(1, 1e9));
     for (var i = 0; i <= 40; i++) {
       var t = i / 40;
@@ -733,7 +744,7 @@ var VIZ = {
     lineTo(g, [[R.x, R.y + R.h * 0.94], [R.x + R.w, R.y + R.h * 0.94]]); g.stroke();
   }],
 
-  phase: ['向量场', 'Vector Field', function (g, R) {
+  phase: ['Vector Field', function (g, R) {
     var n = ri(5, 7), N2 = mkNoise(ri(1, 1e9));
     var cw = R.w / n, ch = R.h / n;
     for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
@@ -745,7 +756,7 @@ var VIZ = {
     }
   }],
 
-  persist: ['持久图', 'Persistence', function (g, R) {
+  persist: ['Persistence', function (g, R) {
     var r = Math.min(R.w, R.h);
     var ox = R.cx - r / 2, oy = R.cy - r / 2;
     g.strokeRect(ox, oy, r, r);
@@ -760,7 +771,7 @@ var VIZ = {
     }
   }],
 
-  spiral: ['螺线', 'Spiral', function (g, R) {
+  spiral: ['Spiral', function (g, R) {
     var turns = rf(2.6, 4.0), P = [];
     for (var i = 0; i <= 240; i++) {
       var t = i / 240, a = t * turns * 6.2832, rr = R.s * 0.46 * t;
@@ -773,7 +784,7 @@ var VIZ = {
     }
   }],
 
-  calendar: ['日历热图', 'Calendar', function (g, R) {
+  calendar: ['Calendar', function (g, R) {
     var cols = 12, rows = 7, c = Math.min(R.w / cols, R.h / rows) * 0.94;
     var ox = R.cx - c * cols / 2, oy = R.cy - c * rows / 2, N2 = mkNoise(ri(1, 1e9));
     for (var i = 0; i < cols; i++) for (var j = 0; j < rows; j++) {
@@ -785,7 +796,7 @@ var VIZ = {
     }
   }],
 
-  ternary: ['三元图', 'Ternary', function (g, R) {
+  ternary: ['Ternary', function (g, R) {
     var r = R.s * 0.44, V = [];
     for (var i = 0; i < 3; i++) { var a = -1.5708 + i * 2.0944; V.push([R.cx + Math.cos(a) * r, R.cy + Math.sin(a) * r]); }
     lineTo(g, [V[0], V[1], V[2], V[0]]); g.stroke();
@@ -802,13 +813,15 @@ var VIZ = {
   }]
 };
 var VIZ_KEYS = Object.keys(VIZ);
-/* 只有这几种是「调子型」—— 过网点仍然认得出。线稿型过网点就糊了。 */
-/* 能过网点的只有「本来就是色块」的那几种 —— 网点是拿来替代实心填充的。
-   线型和点型标本（contour / voronoi / scatter / beeswarm / phase / umap）一过网，
-   线就断成虚线、点就糊成一团，图本身先没了。宁可不加质感也不能吃掉主体。 */
+/* Only these are "tonal" — still recognisable after screening. Line-based ones smear. */
+/* The only specimens that survive a halftone screen are the ones that were already
+   solid areas — the screen is there to replace a solid fill. Line and point specimens
+   (contour / voronoi / scatter / beeswarm / phase / umap) break into dashes or smear
+   into a blob, and the figure itself is gone. Better no texture than texture that
+   eats the subject. */
 var TONAL = { nebula: 1, stream: 1, area: 1 };
 
-/* 外部素材仍然支持（可选），但默认走标本库 */
+/* External material is still supported (optional), but the specimen library is the default */
 var MATS = [];
 function materials(list) { MATS = list || []; return COLLAGE; }
 
@@ -822,16 +835,16 @@ function drawSlot(g, x, y, w, h, spec, N) {
     g.restore();
     return;
   }
-  /* 卡纸：约一半的图把标本放在奶白卡上，另一半直接画在色场上 */
+  /* Card stock: about half the plates put the specimen on a cream card, the other half draw straight onto the field */
   if (spec.card) { g.fillStyle = rgba(PAPER); tornPath(g, [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], 0.9); g.fill(); }
-  var pad = Math.min(w, h) * 0.11;                      /* 标本四周留白，不铺满 */
+  var pad = Math.min(w, h) * 0.11;                      /* margin around the specimen; do not fill the slot */
   var R = { x: x + pad, y: y + pad, w: w - pad * 2, h: h - pad * 2 };
   R.cx = R.x + R.w / 2; R.cy = R.y + R.h / 2; R.s = Math.min(R.w, R.h);
   LW = Math.max(1, R.s / 62) * spec.lw;
   var col = spec.card ? rgba(INK) : rgba(spec.col);
 
   g.save();
-  g.beginPath(); g.rect(x, y, w, h); g.clip();          /* 放大过头的部分被裁掉 —— 局部视图 */
+  g.beginPath(); g.rect(x, y, w, h); g.clip();          /* anything zoomed past the edge is cropped — a detail view */
   g.translate(R.cx, R.cy);
   g.rotate(spec.rot);
   g.scale(spec.zoom * (spec.mirror ? -1 : 1), spec.zoom);
@@ -841,32 +854,34 @@ function drawSlot(g, x, y, w, h, spec, N) {
   g.strokeStyle = col; g.fillStyle = col; g.lineWidth = LW;
   g.lineCap = 'round'; g.lineJoin = 'round';
   if (STYLE === 3) g.setLineDash([LW * 2.6, LW * 2.2]);
-  VIZ[spec.viz][2](g, R);
+  VIZ[spec.viz][1](g, R);
   g.setLineDash([]);
   g.restore();
 }
 
-/* ───────── 构图骨架 ─────────
-   从 28 张原图里归纳出来的分割方式，一张只用一种。 */
+/* ───────── Composition skeletons ─────────
+   The ways of splitting a frame, generalised from the 28 originals. One per plate. */
 var SKELETONS = ['diagonal', 'vsplit', 'hsplit', 'quad', 'inset', 'scallop', 'band'];
 
-/* ───────── 质感：挂在位置上，不是铺在全图上 ─────────
-   真印刷里质感是有地址的。四种质感，四个落点：
+/* ───────── Texture: it hangs on a position, it is not spread over the whole plate ─────────
+   In real printing, texture has an address. Four textures, four addresses:
 
-     A 交界带  堆墨（内侧压暗）      带宽 1.2% 画幅        每张
-     B 套印    重影错位露第三色      位移 1.2% × 档位      每张有第二色场的
-     C 质感区  粗颗粒，照片感        一个色场 ≈ 40% 画幅   只有 38% 的图
-     D 墨层    密度不匀（加性，不打洞）仅标本墨迹           每张
-     E 纸基    纤维                  全图                  振幅 ≤ 3/255
+     A boundary      ink build-up (darker inside)        band 1.2% of frame     every plate
+     B registration  ghost offset showing a third colour offset 1.2% × level    every plate with a second field
+     C texture patch coarse grain, photographic         one field ≈ 40% frame   only 38% of plates
+     D ink layer     uneven density (additive, no holes) specimen ink only      every plate
+     E paper base    fibre                               whole frame            amplitude ≤ 3/255
 
-   C 是唯一会被一眼看见的那层，所以它必须**只占一块**：
-   平涂和颗粒并置才有材质对比，全图都上颗粒等于没上。
-   D 用加性不用抠 alpha —— 抠 alpha 会在色块上开出云斑，那是发霉不是印刷。
+   C is the only layer anyone sees at a glance, so it must **cover one patch only**:
+   flat and grainy side by side is what creates material contrast; grain everywhere is grain nowhere.
+   D is additive rather than alpha-eroded — eroding alpha opens cloudy patches in a
+   solid, and that reads as mould, not printing.
 
-   档位 0 关 / 1 轻 / 2 中 / 3 重（默认） */
+   Levels: 0 off / 1 light / 2 medium / 3 heavy (default) */
 var TEXTURE = 3;
 var TEX = [
-  /*  fiber 纸基  build 堆墨  ghost 重影  ink 墨不匀  patch 质感区概率  grit 质感区强度  screen 网点概率 */
+  /*  fiber paper base   build ink build-up   ghost registration ghost   ink ink unevenness
+      patch texture-patch probability   grit texture-patch strength   screen halftone probability */
   { fiber: 0.0, build: 0.00, ghost: 0.00, ink: 0.00, patch: 0.00, grit: 0.00, screen: 0.00 },
   { fiber: 1.3, build: 0.16, ghost: 0.45, ink: 0.05, patch: 0.26, grit: 0.20, screen: 0.28 },
   { fiber: 2.4, build: 0.30, ghost: 0.90, ink: 0.10, patch: 0.42, grit: 0.36, screen: 0.46 },
@@ -882,11 +897,12 @@ function shuf(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r
 function makeSpecs() {
   srnd(CFG.seed);
   SPECS = [];
-  /* 按种子洗牌再轮转：一屏之内不重复，换种子整批母题也换 */
+  /* Shuffle by seed, then rotate: no repeats within one screen, and a new seed changes the whole batch of motifs */
   var order = shuf(VIZ_KEYS.slice());
   for (var i = 0; i < CFG.count; i++) {
-    /* 配色策略：先选一个色调族做主，再从族内或中性里取第二色；
-       约 1/3 的图允许第二色跨族跳出去（大胆的那部分）。 */
+    /* Colour strategy: pick one tone family as primary, then take the second colour
+       from inside that family or from the neutrals; about 1/3 of plates let the second
+       colour jump to another family (the bold ones). */
     var fam = pick(FAMILIES);
     var pool = FIELDS.slice(fam[0], fam[1]);
     var a = pick(pool);
@@ -898,32 +914,33 @@ function makeSpecs() {
       skeleton: SKELETONS[i % SKELETONS.length],
       A: a, B: b,
       mat: ri(0, 99),
-      viz: order[i % order.length],            /* 洗牌后轮转 */
+      viz: order[i % order.length],            /* rotate through the shuffled order */
       card: false,
       col: lum(a) > 128 ? INK : PAPER,
-      screen: false,                      /* 见下：只有调子型标本才过网点 */
-      strokes: rnd() < 0.62 ? 0 : (rnd() < 0.78 ? 1 : 2),   /* 多数不画线 —— 上一版满屏乱砍 */
+      screen: false,                      /* see below: only tonal specimens get screened */
+      strokes: rnd() < 0.62 ? 0 : (rnd() < 0.78 ? 1 : 2),   /* most plates draw none — the previous version slashed lines everywhere */
       grain: rf(3, 7),
       seed: ri(1, 1e9)
     });
     var sp = SPECS[SPECS.length - 1];
-    /* 实例变换：保证同一个标本两次出现长得不一样 */
+    /* Instance transform: guarantees the same specimen looks different the second time it appears */
     var rr = rnd();
     sp.rot    = rr < 0.42 ? 0 : (rr < 0.62 ? 1.5708 : (rr < 0.74 ? -1.5708 : (rr < 0.84 ? 3.1416 : rf(-0.42, 0.42))));
     sp.mirror = rnd() < 0.42;
-    sp.zoom   = rnd() < 0.30 ? rf(1.35, 2.30) : rf(0.72, 1.12);   /* 30% 放大到出血，只看局部 */
+    sp.zoom   = rnd() < 0.30 ? rf(1.35, 2.30) : rf(0.72, 1.12);   /* 30% zoom to bleed and show a detail only */
     sp.lw     = rf(0.72, 1.55);
     sp.style  = pick([0, 0, 0, 1, 2, 3, 4]);
-    sp.card = rnd() < 0.62;                                  /* 多数放在奶白卡上，保证可读 */
+    sp.card = rnd() < 0.62;                                  /* most sit on a cream card, which keeps them readable */
     sp.screen = !sp.card && TONAL[sp.viz] === 1 && rnd() < TEX[TEXTURE].screen;
-    sp.kit = FORCEKIT || pick(KITS);                         /* 这张用哪种材质 */
+    sp.kit = FORCEKIT || pick(KITS);                         /* which material this plate uses */
   }
   CACHE = new Array(CFG.count);
 }
 
-/* D · 墨层密度不匀 —— 只碰有墨的像素，且只加减亮度，不动 alpha。
-   抠 alpha 会在实心色块上开出云斑，读起来是发霉不是印刷。
-   两个频率：慢的是上墨量漂移，快的是纸纤维吃墨。 */
+/* D · Uneven ink density — touches inked pixels only, and only adds or subtracts
+   luminance; it never touches alpha. Eroding alpha opens cloudy patches in a solid
+   fill, which reads as mould rather than printing.
+   Two frequencies: the slow one is ink-load drift, the fast one is paper fibre absorbing ink. */
 function inkGrain(cv, N, amt, sc) {
   if (amt <= 0) return;
   var g = cv.getContext('2d'), W = cv.width, H = cv.height;
@@ -938,21 +955,22 @@ function inkGrain(cv, N, amt, sc) {
   g.putImageData(d, 0, 0);
 }
 
-/* ═══════════ C · 材质库 ═══════════
-   一种质感 = 两张场：kd 压暗（走 multiply），kl 提亮（走 lighter，可以没有）。
-   分开是必须的 —— 金属没有高光就只是灰噪，哑光有了高光就不叫哑光。
-   全部按位置生成，不用贴图，不用外部素材。 */
+/* ═══════════ C · Material library ═══════════
+   One texture = two fields: kd darkens (composited with multiply) and kl lightens
+   (composited with lighter, and may be absent). Splitting them is mandatory — metal
+   without a highlight is just grey noise, and matte with a highlight is not matte.
+   Everything is generated from position: no bitmaps, no external assets. */
 var KITS = ['grit', 'grit', 'matte', 'matte', 'plaster', 'linen', 'roller', 'vein', 'brushed', 'foil', 'crease'];
 var KITNAME = {
-  grit:    ['颗粒',   'film grit'],
-  matte:   ['哑光',   'matte'],
-  plaster: ['石膏',   'plaster'],
-  linen:   ['布纹',   'linen'],
-  roller:  ['滚筒',   'ink roller'],
-  vein:    ['木纹',   'wood vein'],
-  brushed: ['拉丝金属', 'brushed metal'],
-  foil:    ['烫金箔', 'foil'],
-  crease:  ['折痕',   'crease']
+  grit:    'film grit',
+  matte:   'matte',
+  plaster: 'plaster',
+  linen:   'linen',
+  roller:  'ink roller',
+  vein:    'wood vein',
+  brushed: 'brushed metal',
+  foil:    'foil',
+  crease:  'crease'
 };
 
 function texField(kind, W, H, N, amt, f) {
@@ -960,13 +978,13 @@ function texField(kind, W, H, N, amt, f) {
   var S = W > H ? W : H, lo = Math.max(10, W / 22) * f;
 
   if (kind === 'matte') {
-    /* 哑光：极细、极匀、低反差。粉体涂层的样子 —— 一给高光就不哑了，所以没有 kl。 */
+    /* Matte: very fine, very even, low contrast. A powder-coated surface — give it a highlight and it stops being matte, so there is no kl. */
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var m1 = N(x / 1.05, y / 1.05), m2 = fbm(N, x / (lo * 2.2), y / (lo * 2.2), 2);
       kd[i] = amt * (0.34 + 0.52 * (1 - m1) + 0.30 * (0.6 - m2));
     }
   } else if (kind === 'brushed') {
-    /* 拉丝金属：沿一个方向拉得极长、垂直方向极密的各向异性噪声，加一道宽高光带。 */
+    /* Brushed metal: anisotropic noise stretched far along one axis and packed tight across it, plus one wide highlight band. */
     kl = new Float32Array(n);
     var vert = f > 1.25;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
@@ -977,18 +995,18 @@ function texField(kind, W, H, N, amt, f) {
       kl[i] = amt * sh * sh * 0.62 * (0.35 + 0.65 * st);
     }
   } else if (kind === 'foil') {
-    /* 烫金箔：两三道平滑的斜向反光带，几乎不带颗粒。压暗和提亮同时存在才有金属味。 */
+    /* Foil: two or three smooth diagonal reflection bands, almost no grain. It only reads as metal when darkening and lightening both exist. */
     kl = new Float32Array(n);
     var ang = 0.55 + f * 0.55, ca = Math.cos(ang), sa = Math.sin(ang), bands = 1.9 + f * 0.8;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var t = ((x * ca + y * sa) / S) * bands + fbm(N, x / (lo * 3), y / (lo * 3), 2) * 0.32;
       var w = Math.sin(t * 6.2832), fg2 = N(x / 1.25, y / 1.25);
-      /* 箔压在纸上仍然有纤维。纯平滑渐变会滑成 3D 高光，那就不是印刷了。 */
+      /* Foil stamped onto paper still has fibre. A purely smooth gradient slides into a 3D highlight, and that is no longer printing. */
       kd[i] = amt * ((w < 0 ? -w : 0) * 0.92 + (1 - fg2) * 0.22);
       kl[i] = amt * (w > 0 ? w : 0) * 0.62;
     }
   } else if (kind === 'linen') {
-    /* 布纹：两个方向的细棱，不是点阵。低频调制打散规则性，免得像屏幕摩尔纹。 */
+    /* Linen: fine ribs in two directions, not a dot grid. Low-frequency modulation breaks up the regularity so it does not read as screen moiré. */
     var px = 2.0 + 2.6 * f, py = px * 1.28;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var wx = 0.5 + 0.5 * Math.sin(x * 6.2832 / px), wy = 0.5 + 0.5 * Math.sin(y * 6.2832 / py);
@@ -996,28 +1014,28 @@ function texField(kind, W, H, N, amt, f) {
       kd[i] = amt * (wx * 0.5 + wy * 0.5) * 0.95 * (0.5 + 0.95 * md);
     }
   } else if (kind === 'plaster') {
-    /* 石膏／水泥：大块软斑打底，再撒一层细麻点。 */
+    /* Plaster / cement: large soft blotches underneath, then a scatter of fine speckle on top. */
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var b = fbm(N, x / (lo * 2.6), y / (lo * 2.6), 4), pit = N(x / 1.6, y / 1.6);
       kd[i] = amt * ((0.62 - b) * 1.65 + (1 - pit) * 0.28);
     }
   } else if (kind === 'roller') {
-    /* 油墨滚筒：横向拖影，外加沿滚筒周长的一圈圈密度带。丝网／riso 的典型毛病。 */
+    /* Ink roller: horizontal smear, plus density bands repeating at the roller's circumference. The classic screen-print / riso defect. */
     var rows = 2.2 + f * 1.7;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
-      var sm = N(x / (30 * f), y / (2.4 * f));      /* 拖影必须横着走，才跟拉丝分得开 */
+      var sm = N(x / (30 * f), y / (2.4 * f));      /* the smear must run horizontally to stay distinct from brushed metal */
       var bd = 0.5 + 0.5 * Math.sin(y / H * 3.1416 * rows + 0.8);
       kd[i] = amt * ((1 - sm) * 0.55 + bd * 0.60);
     }
   } else if (kind === 'vein') {
-    /* 木纹／大理石：拿 fbm 去扭曲坐标，扭出长条纹。 */
+    /* Wood grain / marble: warp the coordinates with fbm to twist out long stripes. */
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var q = fbm(N, x / (lo * 1.8), y / (lo * 4.5), 3);
       var s2 = 0.5 + 0.5 * Math.sin((x / (lo * 1.1) + q * 3.4) * 3.1416);
       kd[i] = amt * s2 * 1.05 * (0.45 + 0.85 * fbm(N, x / (lo * 3), y / (lo * 3), 2));
     }
   } else if (kind === 'crease') {
-    /* 折痕：几条软棱，一侧压暗一侧提亮 —— 折过的纸就是这样。 */
+    /* Crease: a few soft ridges, darker on one side and lighter on the other — that is what folded paper does. */
     kl = new Float32Array(n);
     var L = [], cnt = 2 + (((f * 7) | 0) % 3);
     for (var q2 = 0; q2 < cnt; q2++) {
@@ -1038,19 +1056,20 @@ function texField(kind, W, H, N, amt, f) {
       kd[i] = amt * (fa * (side < 0 ? 1.15 : 0.12) + (1 - fn) * 0.16);
       kl[i] = amt * fa * (side > 0 ? 0.52 : 0);
     }
-  } else {                                   /* grit —— 照片颗粒 */
+  } else {                                   /* grit — photographic grain */
     for (y = 0; y < H; y++) for (x = 0; x < W; x++, i++) {
       var lw = fbm(N, x / lo, y / lo, 3);
       var hi = N(x / (1.35 * f), y / (1.35 * f)) * 0.62 + N(x / (3.1 * f) + 17, y / (3.1 * f) + 17) * 0.38;
-      /* 低频负责结块，高频负责颗粒本身。全高频只是噪点，不是颗粒。 */
+      /* Low frequency does the clumping, high frequency does the grain itself. All high frequency is just noise, not grain. */
       kd[i] = amt * ((1 - hi) * 0.72 + (0.68 - lw) * 0.85);
     }
   }
   return { kd: kd, kl: kl };
 }
 
-/* 把场变成两张可以直接 composite 的画布。
-   压暗那张从白插值到 tint —— 灰噪 multiply 会把色场洗成脏灰，同色的深版不会。 */
+/* Turn a field into two canvases that can be composited directly.
+   The darkening one interpolates from white to tint — grey noise multiplied over a
+   field washes it to dirty grey; a darker version of the same hue does not. */
 function texTile(kind, W, H, N, amt, tint, f) {
   var F = texField(kind, W, H, N, amt, f), n = W * H;
   var c = mkCanvas(W, H), g = c.getContext('2d'), d = g.createImageData(W, H), p = d.data;
@@ -1074,8 +1093,8 @@ function texTile(kind, W, H, N, amt, tint, f) {
   }
   return { mul: c, add: a };
 }
-/* 拿 mask 画布当模具：inv=false 只留 mask 覆盖处，inv=true 只留 mask 之外。
-   keep 是必须让开的矩形（标本槽）—— 质感可以铺在主体旁边，不能铺在主体身上。 */
+/* Use the mask canvas as a stencil: inv=false keeps only what the mask covers, inv=true keeps only what it does not.
+   keep is the rectangle that must be left alone (the specimen slot) — texture may sit beside the subject, never on top of it. */
 function maskedGrit(tile, mask, inv, keep) {
   var c = mkCanvas(tile.width, tile.height), g = c.getContext('2d');
   g.drawImage(tile, 0, 0);
@@ -1083,14 +1102,14 @@ function maskedGrit(tile, mask, inv, keep) {
   g.drawImage(mask, 0, 0);
   if (keep) {
     g.globalCompositeOperation = 'destination-out';
-    g.filter = 'blur(' + Math.max(6, tile.width * 0.055) + 'px)';  /* 软边要够软，否则擦出个可读的方块，像水渍 */
+    g.filter = 'blur(' + Math.max(6, tile.width * 0.055) + 'px)';  /* the soft edge has to be soft enough, or the erase leaves a readable rectangle that looks like a water stain */
     g.fillStyle = '#000';
     g.fillRect(keep[0], keep[1], keep[2], keep[3]);
     g.filter = 'none';
   }
   return c;
 }
-/* 槽位有多少落在 mask 里 —— 用来决定质感该去场内还是场外 */
+/* How much of the slot falls inside the mask — decides whether the texture goes inside or outside the field */
 function slotCover(mask, x, y, w, h) {
   var g = mask.getContext('2d'), n = 0, hit = 0;
   var d = g.getImageData(Math.max(0, x | 0), Math.max(0, y | 0),
@@ -1112,18 +1131,20 @@ function render(i, scale) {
 
   g.fillStyle = rgba(s.A); g.fillRect(0, 0, W, H);
 
-  /* 第二色场画在自己的图层上 —— 有了这张图层，套印重影（错位再叠一次）和
-     质感区（拿它当模具）才有得依托。直接画在底上就什么都做不了。 */
+  /* The second field is drawn on its own layer — that layer is what makes registration
+     ghosting (offset and overprint again) and the texture patch (using it as a stencil)
+     possible at all. Drawn straight onto the ground, neither can be done. */
   var T = TEX[TEXTURE];
   var band = Math.max(1, Math.min(W, H) * 0.012);
   var fl = mkCanvas(W, H), fg = fl.getContext('2d');
   fg.fillStyle = rgba(s.B);
-  /* 无论档位开不开，这三个随机数都先抽掉 —— 否则关掉质感会挪动整条随机流，
-     四个档位就不再是同一批图，对照也就无从谈起。 */
+  /* These rolls happen whether or not the level is on — otherwise switching texture off
+     would shift the whole random stream, the four levels would no longer be the same
+     batch of plates, and comparing them would mean nothing. */
   var rollGhost = rnd(), rollPatch = rnd(), rollInv = rnd(), rollGrain = rnd();
 
-  /* A · 堆墨：沿边描一圈压暗的同色，再裁回填充区内。
-     裁是必要的 —— 不裁就成了描边框，那是 UI 不是印刷。 */
+  /* A · Ink build-up: stroke a darker version of the same colour around the edge, then clip back inside the fill.
+     The clip is necessary — without it this is an outline, and an outline is UI, not printing. */
   function inkBuild() {
     if (T.build <= 0) return;
     fg.save();
@@ -1153,7 +1174,7 @@ function render(i, scale) {
     fg.fill(); inkBuild();
     slot = [W * 0.5, 0, W * 0.5, H * 0.5];
   } else if (K === 'inset') {
-    /* 没有第二色场。给质感区一块随机半幅当模具，否则这类图永远没材质。 */
+    /* No second field. Hand the texture patch a random half-frame as a stencil, otherwise this kind of plate never gets any material. */
     hasField = false;
     var vert = rnd() < 0.5, frac = rf(0.40, 0.58), far = rnd() < 0.5;
     fg.fillStyle = '#000';
@@ -1172,8 +1193,8 @@ function render(i, scale) {
   }
 
   if (hasField) {
-    /* B · 套印不准：先把同一版错位叠一次，用 multiply 压在底色上。
-       正版盖住大部分，只在两侧漏出一条第三色 —— 那条才是印刷味。 */
+    /* B · Misregistration: overprint the same plate once at an offset, multiplied onto the ground.
+       The correct impression covers most of it and a strip of a third colour leaks out at the sides — that strip is the print feel. */
     if (T.ghost > 0) {
       var ga = rollGhost * 6.2832, gd = Math.min(W, H) * 0.012 * T.ghost;
       g.save();
@@ -1185,31 +1206,31 @@ function render(i, scale) {
     g.drawImage(fl, 0, 0);
   }
 
-  /* 素材槽 */
+  /* Material slot */
   var sx = Math.round(slot[0]), sy = Math.round(slot[1]),
       sw = Math.round(slot[2]), sh = Math.round(slot[3]);
 
-  /* C · 质感区：只压一块，而且必须给主体让路。
-     先比一下槽位落在场内还是场外更少，往少的那边放；不放心的部分再软擦掉。
-     标本压在奶白卡上时卡是不透明的，质感本来就被盖住，不用让。 */
+  /* C · Texture patch: one patch only, and it must give way to the subject.
+     Compare how much of the slot falls inside the field versus outside and put the texture on the emptier side; whatever still overlaps is softly erased.
+     When the specimen sits on a cream card the card is opaque, so the texture is already hidden and nothing needs to move. */
   if (T.grit > 0 && rollPatch < T.patch) {
     var inv;
     if (!hasField) inv = false;
     else if (s.card) inv = rollInv < 0.45;
     else {
       var covIn = slotCover(fl, sx, sy, sw, sh);
-      inv = covIn > 0.34;                      /* 主体在场里 → 质感去场外 */
+      inv = covIn > 0.34;                      /* subject inside the field → texture goes outside */
     }
     var base = (hasField && !inv) ? s.B : s.A;
     var tint = mix(base, INK, 0.5), NG = mkNoise(s.seed ^ 0x2f19);
-    var gsc = 0.70 + rollGrain * 0.9;          /* 同一种材质的粗细逐张变 */
+    var gsc = 0.70 + rollGrain * 0.9;          /* the coarseness of one material varies from plate to plate */
     var keep = s.card ? null : [sx - W * 0.02, sy - H * 0.02, sw + W * 0.04, sh + H * 0.04];
     var tl = texTile(s.kit, W, H, NG, T.grit, tint, gsc);
     g.save();
     g.globalCompositeOperation = 'multiply';
     g.drawImage(maskedGrit(tl.mul, fl, inv, keep), 0, 0);
     g.restore();
-    if (tl.add) {                              /* 金属和折痕才有高光 */
+    if (tl.add) {                              /* only metal and crease have a highlight */
       g.save();
       g.globalCompositeOperation = 'lighter';
       g.globalAlpha = 0.8;
@@ -1218,19 +1239,19 @@ function render(i, scale) {
     }
   }
 
-  /* 采一下槽位中心底下到底是什么色 —— 槽位常常压在第二色场上，
-     只看 A 会导致深色场上画深色标本，直接消失。 */
+  /* Sample what colour actually sits under the centre of the slot — slots often land on
+     the second field, and reading A alone would draw a dark specimen on a dark field, where it disappears. */
   var probe = g.getImageData(Math.min(W - 1, sx + (sw >> 1)), Math.min(H - 1, sy + (sh >> 1)), 1, 1).data;
   s.col = (0.2126 * probe[0] + 0.7152 * probe[1] + 0.0722 * probe[2]) > 128 ? INK : PAPER;
 
   var lay = mkCanvas(W, H), lg = lay.getContext('2d');
   drawSlot(lg, sx, sy, sw, sh, s, N);
-  inkGrain(lay, N, T.ink, Math.max(9, W / 26));           /* D · 只碰标本的墨，不碰底色 */
+  inkGrain(lay, N, T.ink, Math.max(9, W / 26));           /* D · touches specimen ink only, never the ground */
   if (s.screen) screenRegion(lay, sx, sy, sw, sh, Math.max(2.2, sw / 62), rgba(s.col), N);
   g.drawImage(lay, rf(-1.5, 1.5) * sc, rf(-1.5, 1.5) * sc);
 
-  /* 干笔线 */
-  /* 干笔线：贴着画面走横或竖，不斜砍；而且避开槽位，别糊住标本 */
+  /* Dry-brush lines */
+  /* Run horizontal or vertical with the frame, never diagonal slashes; and stay clear of the slot so they do not smear the specimen */
   for (var k = 0; k < s.strokes; k++) {
     var horiz = rnd() < 0.5, P;
     if (horiz) {
@@ -1243,8 +1264,8 @@ function render(i, scale) {
     dryStroke(g, P, Math.max(2, W / rf(95, 150)), rgba(s.col));
   }
 
-  /* E · 纸基：唯一的全局质感，且必须几乎不可见。
-     振幅随底色明度 —— 深底上颗粒显，浅底上颗粒藏，跟真纸一致。 */
+  /* E · Paper base: the only global texture, and it has to be nearly invisible.
+     Amplitude follows the ground's luminance — grain shows on a dark ground and hides on a light one, exactly like real paper. */
   if (T.fiber > 0) {
     var amp = T.fiber * (0.6 + 0.8 * (1 - lum(s.A) / 255));
     var d = g.getImageData(0, 0, W, H), p = d.data, gi = 0;
@@ -1263,7 +1284,7 @@ function init(o) {
   if (o.seed !== undefined) CFG.seed = o.seed;
   if (o.scale) SCALE = o.scale;
   if (o.texture !== undefined) TEXTURE = Math.max(0, Math.min(3, o.texture | 0));
-  FORCEKIT = o.kit || null;                    /* 只给调试用：把整批锁成同一种材质 */
+  FORCEKIT = o.kit || null;                    /* debug only: lock the whole batch to one material */
   makeSpecs();
   return COLLAGE;
 }
@@ -1274,8 +1295,8 @@ function attach(el, i) {
 }
 function meta(i) {
   var s = SPECS[i]; if (!s) return null;
-  return { skeleton: s.skeleton, viz: s.viz, zh: VIZ[s.viz][0], en: VIZ[s.viz][1],
-           screened: s.screen, kit: s.kit, kitZh: KITNAME[s.kit][0], kitEn: KITNAME[s.kit][1] };
+  return { skeleton: s.skeleton, viz: s.viz, name: VIZ[s.viz][0],
+           screened: s.screen, kit: s.kit, kitName: KITNAME[s.kit] };
 }
 
 var COLLAGE = {
