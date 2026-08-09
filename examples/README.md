@@ -1,10 +1,10 @@
-# 配方
+# Recipes
 
-每条都可直接复制运行。`--seed` 固定，产出可复现。
+Every one of these can be copied and run as-is. `--seed` is fixed, so the output is reproducible.
 
-## 杂志内页 · 极简
+## Magazine interior · minimal
 
-大量留白，多为单层构成，适合长文的章节配图。
+Lots of whitespace, mostly single-layer compositions. Good as section artwork inside longform.
 
 ```bash
 python3 scripts/generate.py --count 12 --seed 108 \
@@ -13,12 +13,12 @@ python3 scripts/generate.py --count 12 --seed 108 \
   --out zine.json --contact zine-sheet.png
 
 python3 scripts/gallery.py --art zine.json --out zine.html \
-  --title '安静的<i>十二</i>页' --layout quad
+  --title '<i>Twelve</i> quiet pages' --layout quad
 ```
 
-## 复古海报 · 做旧
+## Vintage poster · aged
 
-错位与颗粒拉满，层次密集，像压箱底的丝网印。
+Misregistration and grain pushed to the top, layers dense — like a screen print pulled out of the bottom of a drawer.
 
 ```bash
 python3 scripts/generate.py --count 18 --seed 1930 \
@@ -30,9 +30,9 @@ python3 scripts/gallery.py --art poster.json --out poster.html \
   --brand 'Press No.9' --edition 'Series 1930' --layout mosaic
 ```
 
-## 同结构系列 · 涟漪
+## One-structure series · ripple
 
-锁定单一图案，只让颜色变化。做一组有明确主题的封面时用。
+Lock to a single pattern and let only the colour change. Use this for a set of covers with one clear theme.
 
 ```bash
 python3 scripts/generate.py --count 9 --seed 3 \
@@ -40,12 +40,12 @@ python3 scripts/generate.py --count 9 --seed 3 \
   --out ripples.json --contact ripples-sheet.png
 
 python3 scripts/gallery.py --art ripples.json --out ripples.html \
-  --title '涟漪<i>九</i>则' --layout solo
+  --title '<i>Nine</i> ripples' --layout solo
 ```
 
-## 界面占位图 · 轻量
+## UI placeholders · lightweight
 
-小尺寸、低色数，直接内嵌进原型页面。
+Small, few colours, ready to drop straight into a prototype page.
 
 ```bash
 python3 scripts/generate.py --count 40 --seed 2026 \
@@ -53,20 +53,20 @@ python3 scripts/generate.py --count 40 --seed 2026 \
   --out placeholders.json
 ```
 
-产出的 `art.json` 每项都带 `src`（data-URI）、`cn`/`en` 标题与 `pattern` 结构名，可直接喂给前端：
+Every item in the resulting `art.json` carries `src` (a data URI), a `title`, and `pattern` (the structure name), so it can be fed to the front end directly:
 
 ```js
 const art = await fetch('placeholders.json').then(r => r.json());
 document.querySelector('img').src = art[0].src;
-document.querySelector('figcaption').textContent = art[0].cn;  // 赭石 · 涟漪
+document.querySelector('figcaption').textContent = art[0].title;  // Ochre Ripple
 ```
 
-## 换色板
+## Changing the palette
 
-改 `scripts/generate.py` 顶部的 `PAL`：
+Add a line to `PAL` at the top of `scripts/generate.py`:
 
 ```python
-PAL["indigo"] = ((58, 74, 122), "藏靛", "Indigo", "cool")
+PAL["indigo"] = ((58, 74, 122), "Indigo", "cool")
 ```
 
-命名系统与画廊过滤条会自动接上，不需要改别的地方。
+The naming system and the gallery filter bar pick it up automatically. Nothing else needs changing.
